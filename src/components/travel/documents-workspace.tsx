@@ -13,6 +13,7 @@ import { addDocumentNote, deleteDocumentNote, updateDocumentNote } from "@/app/a
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Input, Textarea } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 
 type DocumentNote = {
   id: string;
@@ -29,6 +30,7 @@ type DocumentsWorkspaceProps = {
 };
 
 export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps) {
+  const router = useRouter();
   const [selectedNoteId, setSelectedNoteId] = useState(notes[0]?.id ?? "");
   const [createMode, setCreateMode] = useState(false);
   const resolvedSelectedNoteId = notes.some((note) => note.id === selectedNoteId) ? selectedNoteId : notes[0]?.id ?? "";
@@ -106,6 +108,7 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                    } else {
                      await updateDocumentNote(formData);
                    }
+                   router.refresh();
                  }}
                  className="flex-1 flex flex-col overflow-hidden"
                >
@@ -146,12 +149,15 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                      <section className="space-y-6">
                         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-muted">
                            <span>Refrence Content</span>
-                           {activeNote?.link && (
+                           {activeNote?.link && !isUploadedFile(activeNote.link) && (
                              <a href={activeNote.link} target="_blank" className="flex items-center gap-2 text-foreground hover:underline">
                                 Official Link <ExternalLink size={10} />
                              </a>
                            )}
                         </div>
+                        {activeNote?.link && isUploadedFile(activeNote.link) && (
+                          <AttachmentSummary href={activeNote.link} />
+                        )}
                         <Input name="link" defaultValue={activeNote?.link ?? ""} placeholder="Reference link" className="h-9 bg-surface" />
                         <Input name="file" type="file" className="h-9 bg-surface" />
                         <Textarea 
@@ -182,6 +188,33 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
            <span>Last Sync: Current Session</span>
         </footer>
       </main>
+    </div>
+  );
+}
+
+function isUploadedFile(link: string) {
+  return link.startsWith("/uploads/travel/");
+}
+
+function AttachmentSummary({ href }: { href: string }) {
+  const fileName = href.split("/").pop() ?? "uploaded-file";
+  const extension = fileName.split(".").pop()?.toUpperCase() ?? "FILE";
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-4">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted">Uploaded attachment</p>
+        <p className="mt-1 truncate text-sm font-bold text-foreground">{fileName}</p>
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted">{extension}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <a href={href} target="_blank" className="rounded-md border border-border px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-surface-2">
+          Open
+        </a>
+        <a href={href} download className="rounded-md bg-black px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-zinc-800">
+          Download
+        </a>
+      </div>
     </div>
   );
 }

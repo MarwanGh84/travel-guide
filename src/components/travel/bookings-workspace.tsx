@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { addBooking, deleteBooking } from "@/app/actions";
 
 type Booking = {
@@ -38,6 +39,7 @@ type BookingsWorkspaceProps = {
 };
 
 export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps) {
+  const router = useRouter();
   const [filterType, setFilterType] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -117,6 +119,7 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
           action={async (formData) => {
             await addBooking(formData);
             setShowAddForm(false);
+            router.refresh();
           }}
           className="grid shrink-0 gap-3 border-b border-border bg-background px-6 py-4 md:grid-cols-4"
         >

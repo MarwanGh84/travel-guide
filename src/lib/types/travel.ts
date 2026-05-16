@@ -13,6 +13,7 @@ export type DataSource = {
   provider: string;
   isMock: boolean;
   note: string;
+  classification?: "provider" | "ai" | "computed" | "fallback" | "manual";
 };
 
 export type TripDraft = {
@@ -28,6 +29,8 @@ export type TripDraft = {
   pace: TravelPace;
   interests: string[];
   notes?: string;
+  status: string;
+  itineraryApprovedAt?: string | null;
 };
 
 export type DestinationRecommendation = {
@@ -129,5 +132,6 @@ export type HotelResult = {
   estimatedPricePerNight: number;
   amenities: string[];
   bookingLink?: string;
+  photoUrl?: string;
   source: DataSource;
 };

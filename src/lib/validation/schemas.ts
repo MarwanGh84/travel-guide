@@ -25,6 +25,7 @@ export const TripDraftSchema = z.object({
   pace: TravelPaceSchema,
   interests: z.array(z.string()).or(z.string().transform((s) => (s ? [s] : []))),
   notes: z.string().optional(),
+  status: z.string().optional().default("planning"),
 });
 
 export const ItineraryDaySchema = z.object({
@@ -74,4 +75,107 @@ export const SaveImportsSchema = z.object({
 export const AiItineraryRequestSchema = z.object({
   save: z.boolean().optional(),
   selectedPlaceIds: z.array(z.string()).optional(),
+});
+
+export const AiDestinationSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1),
+  country: z.string().min(1),
+  whyItMatches: z.string().default(""),
+  bestThingsToDo: z.array(z.string()).default([]),
+  estimatedCost: z.coerce.number().min(0).default(0),
+  weatherSummary: z.string().default(""),
+  flightEstimate: z.string().default(""),
+  hotelEstimate: z.string().default(""),
+  pros: z.array(z.string()).default([]),
+  cons: z.array(z.string()).default([]),
+  bestFor: z.array(z.string()).default([]),
+  suggestedTripDuration: z.string().default("Flexible"),
+  confidenceScore: z.coerce.number().min(0).max(100).default(0),
+});
+
+export const AiDestinationsResponseSchema = z.object({
+  destinations: z.array(AiDestinationSchema).default([]),
+});
+
+export const AiItineraryDayResponseSchema = z.object({
+  id: z.string().optional(),
+  theme: z.string().optional(),
+  morningPlan: z.string().optional(),
+  afternoonPlan: z.string().optional(),
+  eveningPlan: z.string().optional(),
+  restaurantIdeas: z.array(z.string()).optional(),
+  hiddenGem: z.string().optional(),
+  estimatedCost: z.coerce.number().min(0).optional(),
+  transportNotes: z.string().optional(),
+  backupOption: z.string().optional(),
+  notes: z.string().optional(),
+  placesIncluded: z.array(z.string()).optional(),
+});
+
+export const AiItineraryResponseSchema = z.object({
+  days: z.array(AiItineraryDayResponseSchema).default([]),
+});
+
+export const GoogleTextSearchResponseSchema = z.object({
+  places: z.array(z.object({
+    id: z.string().optional(),
+    displayName: z.object({ text: z.string().optional() }).optional(),
+    formattedAddress: z.string().optional(),
+    rating: z.number().optional(),
+    priceLevel: z.string().optional(),
+    types: z.array(z.string()).optional(),
+    location: z.object({ latitude: z.number().optional(), longitude: z.number().optional() }).optional(),
+    regularOpeningHours: z.object({ openNow: z.boolean().optional() }).optional(),
+    primaryTypeDisplayName: z.object({ text: z.string().optional() }).optional(),
+    editorialSummary: z.object({ text: z.string().optional() }).optional(),
+    websiteUri: z.string().optional(),
+    userRatingCount: z.number().optional(),
+  })).default([]),
+});
+
+export const GeocodeResponseSchema = z.object({
+  results: z.array(z.object({
+    name: z.string(),
+    country: z.string().optional(),
+    latitude: z.number(),
+    longitude: z.number(),
+    timezone: z.string().optional(),
+  })).optional(),
+});
+
+export const ForecastResponseSchema = z.object({
+  daily: z.object({
+    time: z.array(z.string()).optional(),
+    temperature_2m_max: z.array(z.number()).optional(),
+    temperature_2m_min: z.array(z.number()).optional(),
+    precipitation_probability_max: z.array(z.number()).optional(),
+    weather_code: z.array(z.number()).optional(),
+  }).optional(),
+});
+
+export const FrankfurterResponseSchema = z.object({
+  rates: z.record(z.string(), z.number()).optional(),
+});
+
+export const OverpassResponseSchema = z.object({
+  elements: z.array(z.object({
+    type: z.enum(["node", "way", "relation"]),
+    id: z.number(),
+    lat: z.number().optional(),
+    lon: z.number().optional(),
+    center: z.object({ lat: z.number(), lon: z.number() }).optional(),
+    tags: z.record(z.string(), z.string()).optional(),
+  })).default([]),
+});
+
+export const DestinationIntelligenceSchema = z.object({
+  name: z.string(),
+  country: z.string(),
+  overview: z.string().optional(),
+  neighborhoods: z.array(z.string()).optional(),
+  culture: z.string().optional(),
+  history: z.string().optional(),
+  practicalNotes: z.array(z.string()).optional(),
+  source: z.enum(["google", "osm", "wikivoyage", "wikidata"]),
 });

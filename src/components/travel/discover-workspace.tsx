@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { 
   RefreshCw, 
   Sparkles, 
@@ -14,7 +14,13 @@ import {
   Search,
   Compass,
   Bookmark,
-  ChevronLeft
+  ChevronLeft,
+  Loader2,
+  Info,
+  Globe,
+  History,
+  Navigation,
+  LucideIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -27,10 +33,18 @@ type DiscoverWorkspaceProps = {
   places: PlaceRecommendation[];
   destinations: DestinationRecommendation[];
   selectedIds: Set<string>;
+  intelligence?: {
+    overview: string | null;
+    neighborhoods: string[];
+    culture: string | null;
+    history: string | null;
+    practicalNotes: string[];
+    source: string;
+  } | null;
 };
 
-export function DiscoverWorkspace({ trip, places = [], destinations = [], selectedIds = new Set() }: DiscoverWorkspaceProps) {
-  const [activeCategoryId, setActiveCategoryId] = useState("all");
+export function DiscoverWorkspace({ trip, places = [], destinations = [], selectedIds = new Set(), intelligence }: DiscoverWorkspaceProps) {
+  const [activeCategoryId, setActiveCategoryId] = useState(intelligence ? "intel" : "all");
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
     destinations.find((destination) =>
@@ -40,11 +54,13 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
   );
   const [query, setQuery] = useState("");
   const [showDetail, setShowDetail] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const categories = [
-    { id: "destinations", label: "Destinations", icon: MapPin },
+    { id: "intel", label: "Intelligence", icon: Info },
+    { id: "destinations", label: "Proposals", icon: Globe },
     { id: "all", label: "All Places", icon: Compass },
-    { id: "saved", label: "Saved Places", icon: Bookmark },
+    { id: "saved", label: "Saved", icon: Bookmark },
     { id: "hidden", label: "Hidden Gems", icon: Star },
     { id: "food", label: "Dining", icon: Utensils },
     { id: "culture", label: "Culture", icon: Church },
@@ -65,7 +81,9 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
     if (!query) return true;
     return `${destination.name} ${destination.country}`.toLowerCase().includes(query.toLowerCase());
   });
+
   const isDestMode = activeCategoryId === "destinations";
+  const isIntelMode = activeCategoryId === "intel";
   const activePlace = places.find((p) => p.id === selectedPlaceId);
   const activeDestination = destinations.find((d) => d.id === selectedDestinationId);
   const isSelected = activePlace ? selectedIds.has(activePlace.id) : false;
@@ -80,14 +98,33 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
     setShowDetail(true);
   };
 
+  const handleRefreshPlaces = () => {
+    startTransition(async () => {
+      await refreshPlacesFromProvider();
+    });
+  };
+
+  const handleRefreshAI = () => {
+    startTransition(async () => {
+      await refreshDestinationsFromAi();
+    });
+  };
+
+  const handleCommitDest = (formData: FormData) => {
+    startTransition(async () => {
+      await planDestination(formData);
+      setActiveCategoryId("intel");
+    });
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
       {/* 1. Category Rail */}
       <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface lg:w-[200px] lg:border-b-0 lg:border-r">
         <div className="hidden lg:flex p-4 border-b border-border bg-background">
-           <span className="text-[10px] font-black uppercase tracking-widest text-muted">Explorer</span>
+           <span className="text-[10px] font-black uppercase tracking-widest text-muted">Field Guide</span>
         </div>
-        <nav className="flex lg:flex-1 gap-1 overflow-x-auto p-2 scrollbar-hide">
+        <nav className="flex gap-1 overflow-x-auto p-2 scrollbar-hide lg:flex-1 lg:flex-col lg:overflow-x-visible">
            {categories.map((cat) => (
              <button
                 key={cat.id}
@@ -103,94 +140,167 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
            ))}
         </nav>
         <div className="hidden lg:block p-4 space-y-2 border-t border-border">
-           <form action={refreshPlacesFromProvider}>
-             <button className="flex w-full items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground transition-colors">
-                <RefreshCw size={10} /> Refresh Places
-             </button>
-           </form>
-           <form action={refreshDestinationsFromAi}>
-             <button className="flex w-full items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground transition-colors">
-                <Sparkles size={10} /> Get AI Ideas
-             </button>
-           </form>
+           <button 
+             onClick={handleRefreshPlaces}
+             disabled={isPending}
+             className="flex w-full items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground transition-colors disabled:opacity-50"
+           >
+              {isPending ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Refresh Intelligence
+           </button>
+           <button 
+             onClick={handleRefreshAI}
+             disabled={isPending}
+             className="flex w-full items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground transition-colors disabled:opacity-50"
+           >
+              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Refresh Proposals
+           </button>
         </div>
       </aside>
 
-      {/* 2. List Pane */}
+      {/* 2. Content Pane */}
       <section className={cn(
         "flex w-full shrink-0 flex-col border-r border-border bg-background lg:w-[350px] transition-all",
         showDetail && "hidden lg:flex"
       )}>
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
-           <div className="relative flex-1 mr-4">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-              <input 
-                placeholder="Search..." 
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="h-7 w-full rounded-md border border-border bg-surface pl-8 pr-3 text-[11px] focus:border-black focus:ring-0"
-              />
+        {isIntelMode ? (
+           <div className="flex-1 overflow-y-auto p-6 space-y-10 scrollbar-hide">
+              <header>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-muted">Sector Intelligence</span>
+                 <h2 className="mt-2 text-2xl font-black uppercase tracking-tighter text-foreground">{trip?.destination || "Unknown Sector"}</h2>
+              </header>
+
+              {intelligence ? (
+                <div className="space-y-12 animate-in fade-in slide-in-from-left-4 duration-500">
+                   <IntelSection icon={Globe} title="Overview" content={intelligence.overview} />
+                   
+                   <section>
+                      <div className="flex items-center gap-3 mb-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                         <Navigation size={14} className="text-black" />
+                         Neighborhoods
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                         {intelligence.neighborhoods.length > 0 ? (
+                           intelligence.neighborhoods.map((n, i) => (
+                             <span key={i} className="rounded-md border border-border bg-surface px-3 py-1 text-[10px] font-bold uppercase tracking-tight">{n}</span>
+                           ))
+                         ) : (
+                           <span className="text-[10px] font-bold text-muted uppercase">Intelligence pending for this sector.</span>
+                         )}
+                      </div>
+                   </section>
+
+                   <IntelSection icon={Star} title="Culture" content={intelligence.culture} />
+                   <IntelSection icon={History} title="Background" content={intelligence.history} />
+                   
+                   <div className="rounded-xl bg-black p-5 text-white shadow-xl">
+                      <Info size={18} className="text-muted opacity-50 mb-4" />
+                      <p className="text-[9px] font-black uppercase tracking-widest leading-relaxed">Intelligence source verified via {intelligence.source} regional protocols.</p>
+                   </div>
+                </div>
+              ) : (
+                <div className="py-20 text-center">
+                   <div className="relative mx-auto mb-6 size-12">
+                      <Loader2 size={48} className={cn("text-muted opacity-20", isPending && "animate-spin opacity-100")} />
+                      {!isPending && <Info size={24} className="absolute inset-0 m-auto text-muted" />}
+                   </div>
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                     {isPending ? "Parsing sector intelligence..." : "No local intelligence detected"}
+                   </p>
+                   <button 
+                     onClick={handleRefreshPlaces}
+                     disabled={isPending}
+                     className="mt-6 inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-6 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-surface-2 transition-all disabled:opacity-50"
+                   >
+                      {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                      Scan Sector
+                   </button>
+                </div>
+              )}
            </div>
-           <span className="text-[10px] font-bold text-muted">{isDestMode ? filteredDestinations.length : filteredPlaces.length}</span>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto divide-y divide-border/50">
-           {isDestMode ? (
-             filteredDestinations.map((dest) => (
-               <button
-                  key={dest.id}
-                  onClick={() => handleSelectDest(dest.id)}
-                  className={cn(
-                    "flex w-full flex-col gap-1 p-4 text-left transition-all",
-                    selectedDestinationId === dest.id ? "bg-surface-2 ring-1 ring-inset ring-border" : "hover:bg-surface"
-                  )}
-               >
-                  <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", selectedDestinationId === dest.id ? "text-foreground" : "text-muted-2")}>{dest.name}</h4>
-                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-muted">{dest.country}</p>
-               </button>
-             ))
-           ) : (
-             filteredPlaces.map((place) => (
-               <button
-                  key={place.id}
-                  onClick={() => handleSelectPlace(place.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 p-3 text-left transition-all",
-                    selectedPlaceId === place.id ? "bg-surface-2 ring-1 ring-inset ring-border" : "hover:bg-surface"
-                  )}
-               >
-                  <img src={imageForPlace(place)} alt="" className="size-10 rounded-md object-cover grayscale-[0.5]" />
-                  <div className="min-w-0 flex-1">
-                     <div className="flex items-center justify-between gap-2">
-                        <h4 className={cn("truncate text-xs font-bold", selectedPlaceId === place.id ? "text-foreground" : "text-muted-2")}>
-                          {place.name}
-                        </h4>
-                        {selectedIds.has(place.id) && <div className="size-1.5 shrink-0 rounded-full bg-black" />}
-                     </div>
-                     <p className="mt-1 truncate text-[10px] uppercase tracking-widest text-muted">{place.category}</p>
-                  </div>
-               </button>
-             ))
-           )}
-           {((isDestMode && filteredDestinations.length === 0) || (!isDestMode && filteredPlaces.length === 0)) && (
-             <div className="p-12 text-center text-muted opacity-40">
-                <Compass size={32} className="mx-auto mb-4" strokeWidth={1} />
-                <p className="text-[10px] font-bold uppercase tracking-widest">No entries found</p>
-             </div>
-           )}
-        </div>
+        ) : (
+           <>
+              <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+                 <div className="relative flex-1 mr-4">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                    <input 
+                      placeholder="Search coordinates..." 
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      className="h-7 w-full rounded-md border border-border bg-surface pl-8 pr-3 text-[11px] focus:border-black focus:ring-0"
+                    />
+                 </div>
+                 <span className="text-[10px] font-bold text-muted">{isDestMode ? filteredDestinations.length : filteredPlaces.length}</span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto divide-y divide-border/50 scrollbar-hide">
+                 {isDestMode ? (
+                   filteredDestinations.map((dest) => (
+                     <button
+                        key={dest.id}
+                        onClick={() => handleSelectDest(dest.id)}
+                        className={cn(
+                          "flex w-full flex-col gap-1 p-4 text-left transition-all",
+                          selectedDestinationId === dest.id ? "bg-surface-2 ring-1 ring-inset ring-border" : "hover:bg-surface"
+                        )}
+                     >
+                        <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", selectedDestinationId === dest.id ? "text-foreground" : "text-muted-2")}>{dest.name}</h4>
+                        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-muted">{dest.country}</p>
+                     </button>
+                   ))
+                 ) : (
+                   filteredPlaces.map((place) => (
+                     <button
+                        key={place.id}
+                        onClick={() => handleSelectPlace(place.id)}
+                        className={cn(
+                          "flex w-full items-center gap-3 p-3 text-left transition-all",
+                          selectedPlaceId === place.id ? "bg-surface-2 ring-1 ring-inset ring-border" : "hover:bg-surface"
+                        )}
+                     >
+                        <img src={imageForPlace(place)} alt="" className="size-10 rounded-md object-cover grayscale-[0.5]" />
+                        <div className="min-w-0 flex-1">
+                           <div className="flex items-center justify-between gap-2">
+                              <h4 className={cn("truncate text-xs font-bold", selectedPlaceId === place.id ? "text-foreground" : "text-muted-2")}>
+                                {place.name}
+                              </h4>
+                              {selectedIds.has(place.id) && <div className="size-1.5 shrink-0 rounded-full bg-black" />}
+                           </div>
+                           <p className="mt-1 truncate text-[10px] uppercase tracking-widest text-muted">{place.category}</p>
+                        </div>
+                     </button>
+                   ))
+                 )}
+                 {((isDestMode && filteredDestinations.length === 0) || (!isDestMode && filteredPlaces.length === 0)) && (
+                   <div className="p-8 text-center">
+                      <Compass size={32} className="mx-auto mb-4 text-muted" strokeWidth={1} />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                        {isDestMode ? "No destination ideas yet" : "No places in this view"}
+                      </p>
+                      <button 
+                        onClick={isDestMode ? handleRefreshAI : handleRefreshPlaces}
+                        disabled={isPending}
+                        className="mt-5 inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-4 text-[10px] font-black uppercase tracking-widest text-foreground transition-colors hover:bg-surface-2 disabled:opacity-50"
+                      >
+                        {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                        Retry
+                      </button>
+                   </div>
+                 )}
+              </div>
+           </>
+        )}
       </section>
 
       {/* 3. Detail Stage */}
       <main className={cn(
-        "relative flex-1 overflow-y-auto bg-background p-6 lg:p-12 xl:p-24",
+        "relative flex-1 overflow-y-auto bg-background p-6 lg:p-12 xl:p-24 scrollbar-hide",
         !showDetail && "hidden lg:block"
       )}>
         <button 
            onClick={() => setShowDetail(false)}
            className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-black lg:hidden"
         >
-           <ChevronLeft size={14} /> Back to list
+           <ChevronLeft size={14} /> Back to tactical list
         </button>
 
         <AnimatePresence mode="wait">
@@ -213,10 +323,13 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                          <h1 className="mt-6 text-3xl sm:text-5xl font-black uppercase tracking-tighter text-foreground leading-none">{activeDestination.name}</h1>
                          <p className="mt-4 text-sm font-bold text-muted uppercase tracking-[0.2em]">{activeDestination.country}</p>
                       </div>
-                      <form action={planDestination}>
+                      <form action={handleCommitDest}>
                          <input type="hidden" name="destinationId" value={activeDestination.id} />
-                         <button className="flex h-11 items-center gap-2 rounded-lg bg-black px-6 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl hover:bg-zinc-800 transition-all">
-                            <MapPin size={14} /> Commit Destination
+                         <button 
+                           disabled={isPending}
+                           className="flex h-11 items-center gap-2 rounded-lg bg-black px-6 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl hover:bg-zinc-800 transition-all disabled:opacity-50"
+                         >
+                            {isPending ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />} Commit Destination
                          </button>
                       </form>
                    </div>
@@ -305,10 +418,11 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                       </section>
                       
                       <section className="rounded-xl bg-surface p-8 border border-border shadow-inner">
-                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6">AI Context</h3>
-                         <p className="text-sm italic font-medium leading-relaxed text-muted-2 uppercase tracking-wide">
+                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6">Discovery Source</h3>
+                         <p className="text-sm font-bold leading-relaxed text-muted-2 uppercase tracking-wide">
                             {activePlace.whyRecommended || "Standard recommendation based on location popularity and category relevance."}
                          </p>
+                         <p className="mt-4 text-[9px] font-black uppercase tracking-widest text-muted opacity-60">SOURCE: {activePlace.source?.provider || "Intelligence Pipeline"}</p>
                       </section>
                    </div>
 
@@ -316,7 +430,7 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                       <section>
                          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6">Telemetry</h3>
                          <div className="space-y-4">
-                            <MetaItem label="Safety Index" value="Optimal" />
+                            <MetaItem label="Rating Index" value={activePlace.rating?.toString() || "Optimal"} />
                             <MetaItem label="Cost Weight" value={activePlace.costLevel || "Standard"} />
                             <MetaItem label="Intensity" value="Moderate" />
                          </div>
@@ -338,6 +452,19 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
         </AnimatePresence>
       </main>
     </div>
+  );
+}
+
+function IntelSection({ icon: Icon, title, content }: { icon: LucideIcon, title: string, content: string | null }) {
+  if (!content) return null;
+  return (
+    <section>
+       <div className="flex items-center gap-3 mb-4 text-[10px] font-black uppercase tracking-widest text-muted">
+          <Icon size={14} className="text-black" />
+          {title}
+       </div>
+       <p className="text-sm font-medium leading-relaxed text-muted-2 uppercase tracking-wide">{content}</p>
+    </section>
   );
 }
 

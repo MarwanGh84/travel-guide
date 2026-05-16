@@ -1,4 +1,5 @@
 import type { PlaceRecommendation } from "@/lib/types/travel";
+import { GoogleTextSearchResponseSchema } from "@/lib/validation/schemas";
 
 export type MapPin = {
   id: string;
@@ -9,39 +10,50 @@ export type MapPin = {
   isSaved?: boolean;
   lat: number;
   lng: number;
+  coordinateSource: "place-record" | "google-places-geocoding";
+};
+
+export type MissingMapPlace = {
+  id: string;
+  label: string;
+  location: string;
+  reason: string;
 };
 
 export type MapRoute = {
   center: { lat: number; lng: number };
   zoom: number;
   pins: MapPin[];
+  missingPlaces: MissingMapPlace[];
   routePins: MapPin[];
+  segments: MapSegment[];
   routeNote: string;
   distanceMeters?: number;
   duration?: string;
   encodedPolyline?: string;
+  metricSource: "google-routes" | "computed" | "unavailable";
   isMock: boolean;
   provider: "google-maps" | "not-connected";
+};
+
+export type MapSegment = {
+  origin: string;
+  destination: string;
+  distanceMeters?: number;
+  duration?: string;
+  metricSource: "computed";
 };
 
 const fallbackCenter = { lat: 37.9838, lng: 23.7275 };
 
 export async function getMapRoute(places: PlaceRecommendation[]): Promise<MapRoute> {
-  const pins = places
-    .map((place, index) => ({
-      id: place.id,
-      label: place.name,
-      category: place.category,
-      location: place.location,
-      isHiddenGem: place.isHiddenGem,
-      lat: place.coordinates?.lat ?? 38.72 + index * 0.012,
-      lng: place.coordinates?.lng ?? -9.14 + index * 0.01,
-    }))
-    .filter((pin) => Number.isFinite(pin.lat) && Number.isFinite(pin.lng));
-
+  const resolved = await Promise.all(places.map(resolvePin));
+  const pins = resolved.filter((item): item is MapPin => "lat" in item);
+  const missingPlaces = resolved.filter((item): item is MissingMapPlace => !("lat" in item));
   const center = centerFromPins(pins);
   const zoom = zoomFromPins(pins);
   const routePins = selectRoutePins(pins);
+  const segments = buildRouteSegments(routePins);
   const route = await computeGoogleRoute(routePins);
 
   if (route) {
@@ -49,30 +61,38 @@ export async function getMapRoute(places: PlaceRecommendation[]): Promise<MapRou
       center,
       zoom,
       pins,
+      missingPlaces,
       routePins,
-      routeNote: `Live route estimate across ${routePins.length} nearby stops.`,
+      segments,
+      routeNote: `Google Routes total across ${routePins.length} mapped stops.`,
       distanceMeters: route.distanceMeters,
       duration: route.duration,
       encodedPolyline: route.encodedPolyline,
+      metricSource: "google-routes",
       isMock: false,
       provider: "google-maps",
     };
   }
 
   const fallback = estimateRoute(routePins);
-
+  const hasRouteablePins = routePins.length > 1;
   return {
     center,
     zoom,
     pins,
+    missingPlaces,
     routePins,
+    segments,
     routeNote: process.env.GOOGLE_MAPS_API_KEY
-      ? routePins.length > 1
-        ? "Live pins are shown. Distance and duration are local estimates until Routes API is enabled."
-        : "Live pins are shown. Route needs at least two nearby pins."
-      : "Google Maps is not connected.",
+      ? hasRouteablePins
+        ? "Mapped pins are real. Total route distance is a computed estimate because Google Routes is unavailable."
+        : "Mapped pins are real. Route unavailable until at least two places have coordinates."
+      : hasRouteablePins
+        ? "Mapped pins are real provider coordinates. Google Routes is not connected, so route totals are computed estimates."
+        : "Route unavailable until at least two places have coordinates.",
     distanceMeters: fallback.distanceMeters,
     duration: fallback.duration,
+    metricSource: hasRouteablePins ? "computed" : "unavailable",
     isMock: !process.env.GOOGLE_MAPS_API_KEY,
     provider: process.env.GOOGLE_MAPS_API_KEY ? "google-maps" : "not-connected",
   };
@@ -128,6 +148,75 @@ export function formatDuration(duration?: string) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return remainingMinutes ? `${hours} hr ${remainingMinutes} min` : `${hours} hr`;
+}
+
+async function resolvePin(place: PlaceRecommendation): Promise<MapPin | MissingMapPlace> {
+  if (isCoordinate(place.coordinates?.lat) && isCoordinate(place.coordinates?.lng)) {
+    return {
+      id: place.id,
+      label: place.name,
+      category: place.category,
+      location: place.location,
+      isHiddenGem: place.isHiddenGem,
+      lat: place.coordinates!.lat,
+      lng: place.coordinates!.lng,
+      coordinateSource: "place-record",
+    };
+  }
+
+  const geocoded = await geocodePlace(place);
+  if (geocoded) {
+    return {
+      id: place.id,
+      label: place.name,
+      category: place.category,
+      location: place.location,
+      isHiddenGem: place.isHiddenGem,
+      lat: geocoded.lat,
+      lng: geocoded.lng,
+      coordinateSource: "google-places-geocoding",
+    };
+  }
+
+  return {
+    id: place.id,
+    label: place.name,
+    location: place.location,
+    reason: "No provider coordinates found.",
+  };
+}
+
+async function geocodePlace(place: PlaceRecommendation) {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "places.location",
+      },
+      body: JSON.stringify({
+        textQuery: `${place.name} ${place.location}`,
+        maxResultCount: 1,
+        languageCode: "en",
+      }),
+      next: { revalidate: 60 * 60 * 24 * 7 },
+    });
+    if (!response.ok) return null;
+    const data = GoogleTextSearchResponseSchema.parse(await response.json());
+    const location = data.places[0]?.location;
+    if (!isCoordinate(location?.latitude) || !isCoordinate(location?.longitude)) return null;
+    return { lat: location.latitude, lng: location.longitude };
+  } catch {
+    return null;
+  }
+}
+
+function isCoordinate(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 async function computeGoogleRoute(pins: MapPin[]) {
@@ -203,17 +292,22 @@ function selectRoutePins(pins: MapPin[]) {
   const clusters = pins.map((pin) => pins.filter((candidate) => haversineMeters(pin, candidate) <= radiusMeters));
   const bestCluster = clusters.sort((a, b) => b.length - a.length)[0] ?? [];
   const routeable = bestCluster.length >= 2 ? bestCluster : pins.slice(0, 2);
-  return routeable
-    .sort((a, b) => categoryPriority(a.category, a.isHiddenGem) - categoryPriority(b.category, b.isHiddenGem))
-    .slice(0, 6);
+  return routeable.slice(0, 6);
 }
 
-function categoryPriority(category: string, hidden: boolean) {
-  if (hidden) return 0;
-  if (/museum|landmark|historical|attraction/i.test(category)) return 1;
-  if (/restaurant|cafe|bar/i.test(category)) return 2;
-  if (/park|garden|view|scenic/i.test(category)) return 3;
-  return 4;
+function buildRouteSegments(pins: MapPin[]): MapSegment[] {
+  return pins.slice(1).map((destination, index) => {
+    const origin = pins[index];
+    const distanceMeters = Math.round(haversineMeters(origin, destination) * 1.28);
+    const durationSeconds = Math.round(distanceMeters / 1.25);
+    return {
+      origin: origin.label,
+      destination: destination.label,
+      distanceMeters,
+      duration: `${durationSeconds}s`,
+      metricSource: "computed",
+    };
+  });
 }
 
 function haversineMeters(a: MapPin, b: MapPin) {
@@ -243,28 +337,23 @@ function centerFromPins(pins: MapPin[]) {
 
 function zoomFromPins(pins: MapPin[]) {
   if (pins.length < 2) return 12;
-  const latitudes = pins.map((pin) => pin.lat);
-  const longitudes = pins.map((pin) => pin.lng);
-  const latSpan = Math.max(...latitudes) - Math.min(...latitudes);
-  const lngSpan = Math.max(...longitudes) - Math.min(...longitudes);
-  const span = Math.max(latSpan, lngSpan);
-  if (span > 7) return 5;
-  if (span > 3.5) return 6;
-  if (span > 1.6) return 7;
-  if (span > 0.8) return 8;
-  if (span > 0.35) return 10;
-  if (span > 0.15) return 11;
+  const lats = pins.map((pin) => pin.lat);
+  const lngs = pins.map((pin) => pin.lng);
+  const spread = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs));
+  if (spread > 4) return 6;
+  if (spread > 1) return 8;
+  if (spread > 0.3) return 10;
   return 12;
 }
 
 function markerColor(category: string) {
-  if (/restaurant|cafe|food|bar/i.test(category)) return "orange";
-  if (/scenic|view|observation/i.test(category)) return "blue";
-  if (/garden|park|nature|beach/i.test(category)) return "green";
-  if (/museum|culture|landmark/i.test(category)) return "purple";
-  return "red";
+  const lower = category.toLowerCase();
+  if (/restaurant|cafe|food/.test(lower)) return "red";
+  if (/hidden/.test(lower)) return "purple";
+  if (/museum|culture|history/.test(lower)) return "blue";
+  return "green";
 }
 
 function markerLabel(index: number) {
-  return "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[index] ?? "";
+  return String.fromCharCode(65 + (index % 26));
 }

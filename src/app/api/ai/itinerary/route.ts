@@ -3,6 +3,7 @@ import { generateFullItinerary } from "@/lib/ai/openai";
 import { prisma } from "@/lib/db/prisma";
 import { getPrimaryTrip, toPlaceRecommendations, toSelectedPlaceRecommendations, toTripDraft } from "@/lib/db/travel";
 import { AiItineraryRequestSchema } from "@/lib/validation/schemas";
+import { normalizeName } from "@/lib/utils";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
   const result = await generateFullItinerary(tripDraft, planningPlaces);
 
   if (save && result.ok) {
+    const allRecommendations = await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } });
+    const recommendationsByName = new Map(allRecommendations.map(r => [normalizeName(r.name), r.id]));
+
     await prisma.$transaction(async (tx) => {
       await tx.itineraryDay.deleteMany({ where: { tripId: trip.id } });
       for (const day of result.data) {
@@ -47,6 +51,7 @@ export async function POST(request: Request) {
             items: {
               create: day.placesIncluded.map((title, index) => ({
                 title,
+                placeRecommendationId: recommendationsByName.get(normalizeName(title)) ?? null,
                 timeOfDay: index === 0 ? "morning" : index === 1 ? "afternoon" : "evening",
                 description: "Selected for itinerary planning.",
                 sortOrder: index,

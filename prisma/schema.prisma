@@ -13,6 +13,8 @@ model User {
   name              String             @default("Marwan")
   profile           TravelProfile?
   trips             Trip[]
+  activeTripId      String?
+  activeTrip        Trip?              @relation("ActiveTrip", fields: [activeTripId], references: [id], onDelete: SetNull)
   connectedAccounts ConnectedAccount[]
   aiLogs            AiGenerationLog[]
   apiLogs           ApiProviderLog[]
@@ -71,7 +73,9 @@ model Trip {
   interests                  String
   notes                      String?
   status                     String                      @default("planning")
+  itineraryApprovedAt        DateTime?
   user                       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeForUsers             User[]                      @relation("ActiveTrip")
   travelers                  Traveler[]
   destinationRecommendations DestinationRecommendation[]
   placeRecommendations       PlaceRecommendation[]
@@ -84,8 +88,22 @@ model Trip {
   memories                   Memory[]
   aiLogs                     AiGenerationLog[]
   apiLogs                    ApiProviderLog[]
+  destinationIntel           DestinationIntel?
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
+}
+
+model DestinationIntel {
+  id             String   @id @default(cuid())
+  tripId         String   @unique
+  overview       String?
+  neighborhoods  String?
+  culture        String?
+  history        String?
+  practicalNotes String?
+  source         String   @default("wikivoyage")
+  trip           Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime @updatedAt
 }
 
 model Traveler {

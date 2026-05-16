@@ -13,11 +13,11 @@ export function PlaceCard({ place, selected = false }: { place: PlaceRecommendat
       title={place.name}
       subtitle={place.location}
       selected={selected}
-      action={<StatusBadge tone={selected ? "selected" : place.source.provider === "mock" ? "warm" : "emerald"}>{selected ? "Selected" : place.source.provider === "mock" ? "Suggested" : "Live"}</StatusBadge>}
+      action={<StatusBadge tone={selected ? "selected" : place.source.classification === "provider" ? "emerald" : "warm"}>{selected ? "Selected" : place.source.classification === "provider" ? "Provider data" : place.source.classification === "manual" ? "Manual" : "Fallback"}</StatusBadge>}
       media={
         <div className="grid min-h-28 grid-cols-[1fr_84px] gap-3 p-4">
           <div className="flex flex-col justify-between">
-            <SourceBadge provider={place.category} live={place.source.provider !== "mock"} />
+            <SourceBadge provider={place.category} live={place.source.classification === "provider"} />
             <div className="mt-6 flex items-end gap-4">
               <Metric label="Rating" value={typeof place.rating === "number" ? place.rating.toFixed(1) : "New"} />
               <Metric label="Cost" value={place.costLevel} />

@@ -1,4 +1,5 @@
 import type { DataSource } from "@/lib/types/travel";
+import { ForecastResponseSchema, GeocodeResponseSchema } from "@/lib/validation/schemas";
 
 export type WeatherSummary = {
   destination: string;
@@ -16,19 +17,7 @@ export type WeatherSummary = {
   source: DataSource;
 };
 
-type GeocodeResponse = {
-  results?: Array<{ name: string; country?: string; latitude: number; longitude: number; timezone?: string }>;
-};
-
-type ForecastResponse = {
-  daily?: {
-    time?: string[];
-    temperature_2m_max?: number[];
-    temperature_2m_min?: number[];
-    precipitation_probability_max?: number[];
-    weather_code?: number[];
-  };
-};
+type ForecastResponse = ReturnType<typeof ForecastResponseSchema.parse>;
 
 export async function getWeatherSummary(destination: string): Promise<WeatherSummary> {
   try {
@@ -48,7 +37,7 @@ export async function getWeatherSummary(destination: string): Promise<WeatherSum
     });
 
     if (!response.ok) return fallbackWeather(destination, `Open-Meteo forecast failed with ${response.status}.`);
-    const data = (await response.json()) as ForecastResponse;
+    const data = ForecastResponseSchema.parse(await response.json());
     const daily = normalizeDaily(data);
     if (!daily.length) return fallbackWeather(destination, "Open-Meteo returned no daily forecast rows.");
 
@@ -65,6 +54,7 @@ export async function getWeatherSummary(destination: string): Promise<WeatherSum
       source: {
         provider: "open-meteo",
         isMock: false,
+        classification: "provider",
         note: "Live no-key Open-Meteo forecast.",
       },
     };
@@ -80,7 +70,7 @@ async function geocode(destination: string) {
       next: { revalidate: 60 * 60 * 24 * 7 },
     });
     if (!response.ok) continue;
-    const data = (await response.json()) as GeocodeResponse;
+    const data = GeocodeResponseSchema.parse(await response.json());
     const place = data.results?.[0];
     if (place) return place;
   }
@@ -124,6 +114,7 @@ function fallbackWeather(destination: string, note: string): WeatherSummary {
     source: {
       provider: "weather-unavailable",
       isMock: true,
+      classification: "fallback",
       note,
     },
   };

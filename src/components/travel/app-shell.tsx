@@ -18,11 +18,16 @@ import {
   Clock,
   Bookmark,
   Menu,
-  X
+  X,
+  PlusCircle,
+  TrendingUp,
+  CircleDollarSign,
+  Bed
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { TripStatusBar } from "@/components/travel/trip-status-bar";
 
 const primaryNav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -30,12 +35,14 @@ const primaryNav = [
   { href: "/trips", label: "Trips", icon: History },
   { href: "/discover", label: "Discover", icon: Compass },
   { href: "/itinerary", label: "Itinerary", icon: CalendarDays },
+  { href: "/stays", label: "Stays", icon: Bed },
   { href: "/map", label: "Map", icon: MapPinned },
 ];
 
 const secondaryNav = [
   { href: "/bookings", label: "Bookings", icon: Ticket },
   { href: "/budget", label: "Budget", icon: Wallet },
+  { href: "/currency", label: "Currency", icon: CircleDollarSign },
   { href: "/imports", label: "Imports", icon: Bell },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/memories", label: "Memories", icon: Bookmark },
@@ -62,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Navigation Rail / Drawer */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-border bg-surface transition-transform duration-300 lg:static lg:w-[220px] lg:translate-x-0",
+        "group fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col border-r border-border bg-surface transition-all duration-300 lg:static lg:w-[64px] lg:translate-x-0 lg:hover:w-[240px]",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex h-12 shrink-0 items-center justify-between px-4">
@@ -70,7 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="grid size-8 shrink-0 place-items-center rounded bg-black text-white">
               <MapPinned size={18} />
             </div>
-            <span className="ml-3 overflow-hidden truncate font-bold tracking-tight">
+            <span className="ml-3 overflow-hidden truncate font-bold tracking-tight lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
               TRAVEL GUIDE
             </span>
           </div>
@@ -129,6 +136,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        {/* Global Trip Telemetry Bar */}
+        <TripStatusBar />
+
         {/* Content Stage */}
         <div className="relative flex-1 overflow-hidden">
           <motion.div 
@@ -160,8 +170,8 @@ function NavItem({ href, label, icon: Icon, active, onClick }: { href: string; l
         <Icon size={16} strokeWidth={active ? 2.5 : 2} />
       </div>
       <span className={cn(
-        "ml-3 overflow-hidden truncate text-sm font-medium text-muted transition-all group-hover/item:text-foreground",
-        active && "text-foreground"
+        "ml-3 overflow-hidden truncate text-sm font-medium text-muted transition-all lg:opacity-0 lg:group-hover:opacity-100 group-hover/item:text-foreground",
+        active && "text-foreground lg:opacity-100"
       )}>
         {label}
       </span>

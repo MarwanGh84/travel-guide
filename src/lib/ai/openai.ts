@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
 import { tripLength } from "@/lib/utils";
+import { AiDestinationsResponseSchema, AiItineraryResponseSchema } from "@/lib/validation/schemas";
 
 const model = "gpt-5.5";
 
@@ -9,7 +10,11 @@ function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-export async function structuredJson<T>(prompt: string, fallback: T): Promise<{ ok: boolean; data: T; raw: string; isMock: boolean }> {
+export async function structuredJson<T>(
+  prompt: string,
+  fallback: T,
+  validate?: (value: unknown) => T,
+): Promise<{ ok: boolean; data: T; raw: string; isMock: boolean }> {
   const openai = getClient();
   if (!openai) {
     return { ok: true, data: fallback, raw: "No API key configured.", isMock: true };
@@ -26,7 +31,8 @@ export async function structuredJson<T>(prompt: string, fallback: T): Promise<{ 
     });
 
     const raw = response.choices[0].message.content || "";
-    const data = JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw);
+    const data = validate ? validate(parsed) : (parsed as T);
     return { ok: true, data, raw, isMock: false };
   } catch (error) {
     console.error("OpenAI Error:", error);
@@ -45,6 +51,7 @@ The estimatedCost must be a realistic numeric daily out-of-pocket estimate for a
 The placesIncluded field must contain names from this list if relevant: ${JSON.stringify(selectedPlaceNames)}.
 Trip: ${JSON.stringify(trip)}`,
     { days: [] },
+    (value) => AiItineraryResponseSchema.parse(value),
   );
 
   const rawDays = Array.isArray(result.data?.days) ? result.data.days : [];
@@ -87,19 +94,37 @@ export function normalizeItineraryDays(rawDays: unknown[], expectedLength: numbe
 }
 
 export async function recommendDestinations(trip: TripDraft) {
-  const result = await structuredJson<{ destinations: DestinationRecommendation[] }>(
-    `Recommend 3 alternative destinations for this trip profile: ${JSON.stringify(trip)}.
+  const sameCountryRule = trip.destinationCountry
+    ? `Every recommendation must be inside ${trip.destinationCountry}. The "country" field must be exactly "${trip.destinationCountry}". Do not recommend nearby countries.`
+    : "Recommend destinations that best fit the trip profile.";
+
+  let result = await structuredJson<{ destinations: DestinationRecommendation[] }>(
+    `Recommend 3 destinations for this trip profile: ${JSON.stringify(trip)}.
+${sameCountryRule}
 Return valid JSON as { "destinations": [...] }.
 Each destination must include:
 { "name": string, "country": string, "whyItMatches": string, "bestThingsToDo": string[], "estimatedCost": number, "weatherSummary": string, "flightEstimate": string, "hotelEstimate": string, "pros": string[], "cons": string[], "bestFor": string[], "suggestedTripDuration": string, "confidenceScore": number }`,
     { destinations: [] },
+    (value) => AiDestinationsResponseSchema.parse(value) as { destinations: DestinationRecommendation[] },
   );
+
+  let destinations = normalizeDestinationsForTrip(result.data?.destinations, trip);
+
+  if (trip.destinationCountry && result.ok && destinations.length === 0) {
+    result = await structuredJson<{ destinations: DestinationRecommendation[] }>(
+      `Return 3 destinations only inside ${trip.destinationCountry} for this trip profile: ${JSON.stringify(trip)}.
+Do not include any other country. The "country" field for every item must be exactly "${trip.destinationCountry}".
+Return valid JSON as { "destinations": [...] } using this exact shape:
+{ "name": string, "country": string, "whyItMatches": string, "bestThingsToDo": string[], "estimatedCost": number, "weatherSummary": string, "flightEstimate": string, "hotelEstimate": string, "pros": string[], "cons": string[], "bestFor": string[], "suggestedTripDuration": string, "confidenceScore": number }`,
+      { destinations: [] },
+      (value) => AiDestinationsResponseSchema.parse(value) as { destinations: DestinationRecommendation[] },
+    );
+    destinations = normalizeDestinationsForTrip(result.data?.destinations, trip);
+  }
 
   return {
     ...result,
-    data: Array.isArray(result.data?.destinations)
-      ? result.data.destinations.map((destination, index) => normalizeDestination(destination, index))
-      : [],
+    data: destinations,
   };
 }
 
@@ -176,7 +201,21 @@ function normalizeDestination(value: unknown, index: number): DestinationRecomme
     source: {
       provider: "openai",
       isMock: false,
+      classification: "ai",
       note: "AI-generated recommendation.",
     },
   };
+}
+
+function normalizeDestinationsForTrip(value: unknown, trip: TripDraft) {
+  const expectedCountry = normalizeCountry(trip.destinationCountry);
+  return Array.isArray(value)
+    ? value
+        .map((destination, index) => normalizeDestination(destination, index))
+        .filter((destination) => !expectedCountry || normalizeCountry(destination.country) === expectedCountry)
+    : [];
+}
+
+function normalizeCountry(value?: string) {
+  return value?.trim().toLowerCase() ?? "";
 }

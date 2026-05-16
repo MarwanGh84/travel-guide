@@ -1,51 +1,60 @@
 import { NextResponse } from "next/server";
 import { generateTripSummary } from "@/lib/ai/openai";
 import { getPrimaryTrip } from "@/lib/db/travel";
+import { getWeatherSummary } from "@/lib/api/weatherService";
+import { tripLength } from "@/lib/utils";
 
-export async function GET() {
-  const trip = await getPrimaryTrip();
-  const notes = trip?.memories.length
-    ? trip.memories
-        .map((memory) =>
-          [
-            memory.title,
-            memory.favoriteMoments,
-            memory.placesVisited,
-            memory.favoriteRestaurants,
-            memory.favoriteHiddenGems,
-            memory.placesToRevisit,
-            memory.nextTime,
-            memory.notes,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        )
-        .join("\n\n")
-    : "No saved memories yet. Create a gentle starter summary for a personal vacation journal.";
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const ai = searchParams.get("ai") === "true";
+    
+    const dbTrip = await getPrimaryTrip();
+    if (!dbTrip) {
+      return NextResponse.json({ ok: false, message: "No active trip." }, { status: 404 });
+    }
 
-  const result = await withTimeout(
-    generateTripSummary(notes),
-    {
-      ok: false,
-      data: {
-        summary: "",
-        revisit: [],
-        nextTime: [],
-      },
-      isMock: true,
-      raw: "OpenAI request timed out.",
-    },
-    12000,
-  );
+    const weather = await getWeatherSummary([dbTrip.destination, dbTrip.destinationCountry].filter(Boolean).join(", "));
+    
+    const tripStatus = {
+      id: dbTrip.id,
+      name: dbTrip.name,
+      destination: dbTrip.destination,
+      country: dbTrip.destinationCountry,
+      startDate: dbTrip.startDate.toISOString().slice(0, 10),
+      endDate: dbTrip.endDate.toISOString().slice(0, 10),
+      duration: tripLength(dbTrip.startDate, dbTrip.endDate),
+      travelerCount: dbTrip.travelerCount,
+      budget: dbTrip.budget,
+      pace: dbTrip.pace,
+      travelStyle: dbTrip.travelStyle,
+      interests: dbTrip.interests,
+      status: dbTrip.status,
+      savedPlacesCount: dbTrip.savedPlaces.length,
+      bookingCount: dbTrip.bookings.length,
+      itineraryStatus: dbTrip.itineraryDays.length > 0 ? "Generated" : "Not generated",
+      weather: weather.daily.length > 0 ? {
+        temp: `${weather.daily[0].maxC}°`,
+        label: weather.daily[0].label
+      } : null
+    };
 
-  return NextResponse.json(result);
-}
+    let aiData = null;
+    if (ai) {
+      const notes = dbTrip.memories.map(m => m.notes).filter(Boolean).join("\n") || "No notes yet.";
+      const result = await generateTripSummary(notes);
+      aiData = result.data;
+    }
 
-function withTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => {
-      setTimeout(() => resolve(fallback), timeoutMs);
-    }),
-  ]);
+    return NextResponse.json({ 
+      ok: true, 
+      data: aiData,
+      trip: tripStatus
+    });
+  } catch (error) {
+    return NextResponse.json({ 
+      ok: false, 
+      message: error instanceof Error ? error.message : "Telemetry failed." 
+    }, { status: 500 });
+  }
 }

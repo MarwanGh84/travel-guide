@@ -12,6 +12,7 @@ const mockTrip: TripDraft = {
   travelStyle: "balanced",
   pace: "medium",
   interests: [],
+  status: "planning",
 };
 
 describe("Itinerary Generation", () => {

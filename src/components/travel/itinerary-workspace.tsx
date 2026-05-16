@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEventHandler, type FC } from "react";
 import {
   Sparkles,
   Plus,
@@ -11,34 +11,35 @@ import {
   Train,
   ShieldCheck,
   Loader2,
-  ExternalLink,
   CalendarDays,
   LucideIcon,
   ChevronRight,
-  ChevronLeft,
   CloudRain,
   Edit3,
   RefreshCw,
   Save,
   X,
-  Download
+  Download,
+  Navigation,
+  CheckCircle2
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { formatCurrency, normalizeName } from "@/lib/utils";
 import type { ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
-import { InteractiveMap } from "@/components/travel/interactive-map";
 import { Input, Textarea } from "@/components/ui/input";
-import { clearItinerary } from "@/app/actions";
+import { clearItinerary, approveItinerary, reopenItinerary } from "@/app/actions";
+import Link from "next/link";
 
 type ItineraryWorkspaceProps = {
   trip: TripDraft | null;
   initialDays: ItineraryDay[];
   selectedPlaces: PlaceRecommendation[];
+  allPlaces: PlaceRecommendation[];
   shouldAutoGenerate: boolean;
 };
 
-export function ItineraryWorkspace({ initialDays, selectedPlaces, shouldAutoGenerate, trip }: ItineraryWorkspaceProps) {
+export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, shouldAutoGenerate, trip }: ItineraryWorkspaceProps) {
   const [days, setDays] = useState<ItineraryDay[]>(initialDays);
   const [activeDayId, setActiveDayId] = useState(initialDays[0]?.id ?? "");
   const [generating, setGenerating] = useState(false);
@@ -46,6 +47,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, shouldAutoGene
   const [showDetail, setShowDetail] = useState(Boolean(initialDays[0]));
   const [editMode, setEditMode] = useState(false);
   const [busyAction, setBusyAction] = useState("");
+  const [selectedPlace, setSelectedPlace] = useState<PlaceRecommendation | null>(null);
   const autoGenerateStarted = useRef(false);
 
   const activeIndex = Math.max(0, days.findIndex((day) => day.id === activeDayId));
@@ -136,14 +138,24 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, shouldAutoGene
     setActiveDayId(id);
     setShowDetail(true);
     setEditMode(false);
+    setSelectedPlace(null);
+  };
+
+  const handleSelectPoint = (name: string) => {
+    const matched = [...selectedPlaces, ...allPlaces].find(p => normalizeName(p.name) === normalizeName(name));
+    if (matched) {
+      setSelectedPlace(matched);
+      setShowDetail(true);
+      setEditMode(false);
+    }
   };
 
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row">
       {/* 1. Timeline Pane */}
       <aside className={cn(
-        "flex w-full shrink-0 flex-col border-r border-border bg-surface transition-all duration-300 lg:w-[350px]",
-        activeDayId && "h-[200px] lg:h-full"
+        "flex w-full shrink-0 flex-col border-r border-border bg-surface transition-all duration-300 lg:w-[400px]",
+        activeDayId && "h-[250px] lg:h-full"
       )}>
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
           <div className="flex items-center gap-2">
@@ -153,7 +165,38 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, shouldAutoGene
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <ToolbarButton onClick={generate} disabled={generating} primary title="Generate with AI">
+            {trip?.status === "itinerary_approved" ? (
+               <div className="flex items-center gap-1">
+                  <div className="flex h-7 items-center gap-1.5 rounded-md bg-emerald-50 px-3 text-[9px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-200">
+                    <ShieldCheck size={12} />
+                    Committed
+                  </div>
+                  <form action={reopenItinerary}>
+                     <ToolbarButton type="submit" title="Unlock for editing">Reopen</ToolbarButton>
+                  </form>
+               </div>
+            ) : (
+               <form action={approveItinerary}>
+                 <ToolbarButton 
+                    type="submit" 
+                    primary 
+                    disabled={days.length === 0 || generating} 
+                    title="Commit itinerary and find stays"
+                 >
+                    <CheckCircle2 size={12} />
+                    Approve
+                 </ToolbarButton>
+               </form>
+            )}
+
+            <div className="h-4 w-px bg-border mx-1" />
+
+            <ToolbarButton 
+               onClick={generate} 
+               disabled={generating || trip?.status === "itinerary_approved"} 
+               primary={trip?.status !== "itinerary_approved" && days.length === 0} 
+               title="Generate with AI"
+            >
               {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
               AI Build
             </ToolbarButton>
@@ -198,70 +241,123 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, shouldAutoGene
         </div>
       </aside>
 
-      {/* 2. Main Map Stage */}
+      {/* 2. Focused Plan & Intelligence Pane */}
       <main className="relative flex-1 bg-surface-2 overflow-hidden flex flex-col lg:flex-row">
-        <div className="flex-1 relative overflow-hidden min-h-[300px]">
-           <InteractiveMap 
-             route={{
-               provider: "google-maps",
-               center: { lat: 0, lng: 0 },
-               zoom: 12,
-               pins: activeDay?.placesIncluded.map((p, i) => {
-                 const matched = selectedPlaces.find(sp => normalizeName(sp.name) === normalizeName(p));
-                 return {
-                   id: matched?.id ?? `${activeDay.id}-p-${i}`,
-                   lat: matched?.coordinates?.lat ?? 0,
-                   lng: matched?.coordinates?.lng ?? 0,
-                   label: matched?.name ?? p,
-                   category: matched?.category ?? "Activity",
-                   isHiddenGem: matched?.hiddenGemScore ? matched.hiddenGemScore >= 50 : false,
-                   location: matched?.location ?? "Local area"
-                 };
-               }) ?? [],
-               routePins: [],
-               distanceMeters: 0,
-               duration: "0m",
-               routeNote: "Active Day Map",
-               isMock: false
-             }} 
-             mapImageBaseUrl="/api/maps/static?width=1200&height=800&markers=true" 
-           />
-        </div>
+        {/* Active Day Detail */}
+        <section className="flex-1 overflow-y-auto bg-background p-8 lg:p-16 xl:p-24 border-r border-border">
+           {activeDay ? (
+             <div className="max-w-3xl mx-auto space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <header>
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Active Objective</span>
+                   <h1 className="mt-4 text-4xl lg:text-6xl font-black tracking-tighter uppercase text-foreground leading-none">{activeDay.theme}</h1>
+                   <div className="mt-8 flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-muted">
+                      <span className="flex items-center gap-2"><Clock size={14} /> {activeDay.date}</span>
+                      <div className="h-4 w-px bg-border" />
+                      <span className="flex items-center gap-2"><ShieldCheck size={14} /> Estimated {formatCurrency(activeDay.estimatedCost)}</span>
+                   </div>
+                </header>
 
-        {/* Retractable Detail & Edit Pane */}
-        <div
+                <div className="space-y-12 pb-24">
+                   <PlanNode icon={Clock} label="MORNING" content={activeDay.morningPlan} />
+                   <PlanNode icon={Clock} label="AFTERNOON" content={activeDay.afternoonPlan} />
+                   <PlanNode icon={Clock} label="EVENING" content={activeDay.eveningPlan} />
+
+                   {activeDay.placesIncluded.length > 0 && (
+                     <section>
+                        <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Tactical Points</h3>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                           {activeDay.placesIncluded.map((name, i) => (
+                             <button 
+                                key={i}
+                                onClick={() => handleSelectPoint(name)}
+                                className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 text-left hover:border-black transition-all group"
+                             >
+                                <div className="flex items-center gap-3">
+                                   <div className="size-8 grid place-items-center rounded-lg bg-background border border-border text-muted group-hover:text-black">
+                                      <MapPin size={14} />
+                                   </div>
+                                   <span className="text-xs font-bold uppercase tracking-tight">{name}</span>
+                                </div>
+                                <ChevronRight size={12} className="text-muted group-hover:translate-x-1 transition-transform" />
+                             </button>
+                           ))}
+                        </div>
+                     </section>
+                   )}
+                </div>
+             </div>
+           ) : (
+             <div className="flex h-full items-center justify-center p-12 text-center opacity-30">
+                <CalendarDays size={64} strokeWidth={1} />
+             </div>
+           )}
+        </section>
+
+        {/* Retractable Detail & Intelligence Pane */}
+        <aside
           className={cn(
-            "fixed inset-y-0 right-0 z-40 border-l border-border bg-background transition-all duration-300 shadow-2xl flex flex-col lg:relative lg:inset-auto lg:shrink-0 lg:z-20",
-            showDetail && activeDay ? "w-full sm:w-[400px]" : "w-0 border-none"
+            "fixed inset-y-0 right-0 z-40 border-l border-border bg-surface transition-all duration-300 shadow-2xl flex flex-col lg:relative lg:inset-auto lg:shrink-0 lg:z-20",
+            showDetail ? "w-full sm:w-[400px]" : "w-0 border-none overflow-hidden"
           )}
         >
-          {activeDay && (
-          <div className={cn("absolute -left-8 top-1/2 -translate-y-1/2 z-30", !showDetail && "left-0")}>
-            <button 
-              onClick={() => setShowDetail(!showDetail)}
-              className="grid size-8 place-items-center rounded-l-md border border-r-0 border-border bg-background text-muted hover:text-black shadow-sm"
-            >
-               {showDetail ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-            </button>
-          </div>
-          )}
+          {showDetail && (
+            <div className="flex-1 overflow-hidden flex flex-col">
+               <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-6">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted">{selectedPlace ? "POI INTELLIGENCE" : "SEGMENT CONTROL"}</span>
+                  <button onClick={() => { setShowDetail(false); setSelectedPlace(null); }} className="text-muted hover:text-black transition-colors">
+                     <X size={16} />
+                  </button>
+               </header>
+               
+               <div className="flex-1 overflow-y-auto">
+                  {selectedPlace ? (
+                    <div className="p-8 space-y-10 animate-in fade-in slide-in-from-right-4 duration-300">
+                       <header>
+                          <div className="flex items-center gap-3 mb-4">
+                             <span className="rounded-full bg-black px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-white">POINT OF INTEREST</span>
+                             <span className="text-[10px] font-bold text-muted uppercase">{selectedPlace.category}</span>
+                          </div>
+                          <h2 className="text-3xl font-black uppercase tracking-tighter text-foreground leading-none">{selectedPlace.name}</h2>
+                          <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted leading-relaxed">{selectedPlace.location}</p>
+                       </header>
 
-          <div className="flex-1 overflow-hidden w-full sm:w-[400px] flex flex-col">
-            <AnimatePresence mode="wait">
-               {showDetail && activeDay && (
-                 <DayEditor 
-                    key={activeDay.id} 
-                    day={activeDay} 
-                    onSave={onSaveDay} 
-                    busy={busyAction === "save"} 
-                    onClose={() => setShowDetail(false)}
-                    editMode={editMode}
-                    setEditMode={setEditMode}
-                 />
-               )}
-            </AnimatePresence>
-          </div>
-        </div>
+                       <section>
+                          <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Context</h3>
+                          <p className="text-sm font-medium leading-relaxed text-muted-2 italic">&quot;{selectedPlace.whyRecommended || selectedPlace.description}&quot;</p>
+                       </section>
+
+                       <div className="space-y-3">
+                          {selectedPlace.coordinates && (
+                            <Link href="/map" className="block w-full">
+                               <button className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 transition-all">
+                                  <MapPin size={14} /> View on Tactical Map
+                               </button>
+                            </Link>
+                          )}
+                          <button 
+                            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPlace.name)}`, "_blank")}
+                            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background text-[10px] font-black uppercase tracking-widest text-muted hover:text-black transition-all"
+                          >
+                             <Navigation size={14} /> Open Navigation
+                          </button>
+                       </div>
+                    </div>
+                  ) : (
+                    activeDay && (
+                      <DayEditor 
+                         key={activeDay.id} 
+                         day={activeDay} 
+                         onSave={onSaveDay} 
+                         busy={busyAction === "save"} 
+                         editMode={editMode}
+                         setEditMode={setEditMode}
+                      />
+                    )
+                  )}
+               </div>
+            </div>
+          )}
+        </aside>
       </main>
 
       {status && (
@@ -277,15 +373,23 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, shouldAutoGene
   );
 }
 
-function DayEditor({ day, onSave, busy, onClose, editMode, setEditMode }: { day: ItineraryDay, onSave: (updated: ItineraryDay) => Promise<void>, busy: boolean, onClose: () => void, editMode: boolean, setEditMode: (v: boolean) => void }) {
+function PlanNode({ icon: Icon, label, content }: { icon: LucideIcon, label: string, content: string }) {
+  return (
+    <div className="space-y-4">
+       <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-muted">
+          <Icon size={14} className="text-black" /> {label}
+       </div>
+       <p className="text-xl font-medium leading-relaxed text-muted-2 tracking-tight">{content || "No activity scheduled for this window."}</p>
+    </div>
+  );
+}
+
+function DayEditor({ day, onSave, busy, editMode, setEditMode }: { day: ItineraryDay, onSave: (updated: ItineraryDay) => Promise<void>, busy: boolean, editMode: boolean, setEditMode: (v: boolean) => void }) {
   const [draft, setDraft] = useState(day);
-  const [suggestion, setSuggestion] = useState<ItineraryDay | null>(null);
   const [adjustmentBusy, setAdjustmentBusy] = useState("");
   const [adjustmentStatus, setAdjustmentStatus] = useState("");
   const [adjustmentError, setAdjustmentError] = useState("");
-
-  // We use key prop on the component to avoid needing an effect to reset draft when day changes.
-  // This satisfies the React linter by avoiding setState in effect.
+  const [suggestion, setSuggestion] = useState<ItineraryDay | null>(null);
 
   async function requestAdjustment(label: string, instruction: string) {
     setAdjustmentBusy(label);
@@ -319,49 +423,30 @@ function DayEditor({ day, onSave, busy, onClose, editMode, setEditMode }: { day:
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="flex-1 flex flex-col overflow-hidden"
-    >
-      <div className="p-6 border-b border-border bg-surface">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-black uppercase tracking-widest text-muted">{editMode ? "Editor Active" : "Intensive Detail"}</span>
-            <div className="flex items-center gap-4">
-                {!editMode ? (
-                  <button onClick={() => setEditMode(true)} className="flex items-center gap-2 text-[9px] font-black uppercase text-muted hover:text-black transition-colors">
-                    <Edit3 size={12} /> Edit
-                  </button>
-                ) : (
-                  <button onClick={() => setEditMode(false)} className="flex items-center gap-2 text-[9px] font-black uppercase text-rose-600 hover:text-rose-700 transition-colors">
-                    <X size={12} /> Cancel
-                  </button>
-                )}
-                <button onClick={onClose} className="lg:hidden">
-                   <X size={16} className="text-muted" />
-                </button>
-            </div>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="p-6 bg-background">
+          <div className="flex items-center justify-between mb-8">
+            <span className="text-[9px] font-black uppercase tracking-widest text-muted">{editMode ? "Editor Active" : "Operational Controls"}</span>
+            {!editMode ? (
+              <button onClick={() => setEditMode(true)} className="flex items-center gap-2 text-[9px] font-black uppercase text-muted hover:text-black transition-colors">
+                <Edit3 size={12} /> Edit Plan
+              </button>
+            ) : (
+              <button onClick={() => setEditMode(false)} className="flex items-center gap-2 text-[9px] font-black uppercase text-rose-600 hover:text-rose-700 transition-colors">
+                <X size={12} /> Cancel
+              </button>
+            )}
           </div>
           
-          {editMode ? (
-            <Input 
-              value={draft.theme} 
-              onChange={(e) => setDraft({ ...draft, theme: e.target.value })}
-              className="mt-4 h-10 border-none bg-background p-0 text-2xl font-black uppercase tracking-tighter focus:ring-0" 
-            />
-          ) : (
-            <h2 className="mt-4 text-2xl font-black uppercase tracking-tighter leading-tight">{day.theme}</h2>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-widest text-muted">
-            <span className="flex items-center gap-1.5"><Clock size={12} /> {formatShortDate(day.date)}</span>
-            <span className="flex items-center gap-1.5"><ShieldCheck size={12} /> {formatCurrency(day.estimatedCost)}</span>
+          <div className="space-y-6">
+             <DetailSection icon={Utensils} title="Cuisine Context" content={day.restaurantIdeas} />
+             <DetailSection icon={Train} title="Transit Intelligence" content={day.transportNotes} />
+             <DetailSection icon={Sparkles} title="Hidden Objective" content={day.hiddenGem} />
+             <DetailSection icon={ShieldCheck} title="Backup Plan" content={day.backupOption} />
           </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-6 space-y-10">
+      <div className="flex-1 overflow-y-auto p-6 space-y-10 border-t border-border mt-4">
           {editMode ? (
             <div className="space-y-8">
               <EditField label="Morning Plan">
@@ -373,33 +458,9 @@ function DayEditor({ day, onSave, busy, onClose, editMode, setEditMode }: { day:
               <EditField label="Evening Plan">
                   <Textarea value={draft.eveningPlan} onChange={(e) => setDraft({ ...draft, eveningPlan: e.target.value })} className="min-h-[80px] bg-surface text-xs" />
               </EditField>
-              <EditField label="Cost Estimate">
-                  <Input type="number" value={draft.estimatedCost} onChange={(e) => setDraft({ ...draft, estimatedCost: Number(e.target.value) })} className="bg-surface text-xs" />
-              </EditField>
             </div>
           ) : (
-            <>
-              <DetailSection icon={Utensils} title="Cuisine Context" content={day.restaurantIdeas} />
-              <DetailSection icon={Train} title="Transit Intelligence" content={day.transportNotes} />
-              <DetailSection icon={Sparkles} title="Hidden Objective" content={day.hiddenGem} />
-              <DetailSection icon={ShieldCheck} title="Backup Plan" content={day.backupOption} />
-              <DetailSection icon={CalendarDays} title="Notes" content={day.notes} />
-              
-              <section>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-4 flex items-center gap-2">
-                    <MapPin size={10} /> Active Points
-                  </h3>
-                  <div className="space-y-1">
-                    {day.placesIncluded.map((p, i) => (
-                      <div key={`${day.id}-p-${i}`} className="flex items-center justify-between rounded-md border border-border/60 p-3 hover:bg-surface-2 transition-colors cursor-default group">
-                          <span className="text-xs font-bold truncate pr-4 uppercase tracking-tight">{p}</span>
-                          <ExternalLink size={12} className="text-border group-hover:text-muted shrink-0 transition-colors" />
-                      </div>
-                    ))}
-                  </div>
-              </section>
-
-              <section className="space-y-4 border-t border-border pt-6">
+            <section className="space-y-4 pt-2">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">AI Day Tools</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <DayToolButton
@@ -427,23 +488,21 @@ function DayEditor({ day, onSave, busy, onClose, editMode, setEditMode }: { day:
                 </div>
                 {adjustmentStatus ? <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{adjustmentStatus}</p> : null}
                 {adjustmentError ? <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">{adjustmentError}</p> : null}
-                {suggestion ? (
-                  <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
+                {suggestion && (
+                  <div className="space-y-3 rounded-xl border border-border bg-background p-4 shadow-sm">
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted">Suggested Change</p>
-                    <p className="text-sm font-bold uppercase tracking-tight text-foreground">{suggestion.theme}</p>
-                    <p className="line-clamp-3 text-xs leading-relaxed text-muted-2">{suggestion.morningPlan}</p>
+                    <p className="text-xs font-bold uppercase text-foreground">{suggestion.theme}</p>
                     <button
                       type="button"
                       onClick={applySuggestion}
                       disabled={busy}
-                      className="flex h-9 items-center justify-center rounded-md bg-black px-4 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:opacity-50"
+                      className="flex h-9 w-full items-center justify-center rounded-md bg-black px-4 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:opacity-50"
                     >
                       Apply Suggestion
                     </button>
                   </div>
-                ) : null}
-              </section>
-            </>
+                )}
+            </section>
           )}
       </div>
 
@@ -459,7 +518,7 @@ function DayEditor({ day, onSave, busy, onClose, editMode, setEditMode }: { day:
             </button>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -496,31 +555,6 @@ function TimelineDay({ day, idx, active, onClick, onDelete }: { day: ItineraryDa
       <h3 className={cn("mt-2 text-sm font-black uppercase tracking-tight truncate pr-6", active ? "text-foreground" : "text-muted-2")}>
         {day.theme}
       </h3>
-      
-      <div className="mt-4 space-y-3 lg:block hidden">
-         <TimelineEvent marker="AM" content={day.morningPlan} active={active} />
-         <TimelineEvent marker="PM" content={day.afternoonPlan} active={active} />
-         <TimelineEvent marker="EV" content={day.eveningPlan} active={active} />
-      </div>
-    </div>
-  );
-}
-
-function TimelineEvent({ marker, content, active }: { marker: string, content: string, active: boolean }) {
-  return (
-    <div className="flex items-start gap-4">
-       <span className={cn(
-         "mt-0.5 grid h-4 w-7 shrink-0 place-items-center rounded-[2px] text-[8px] font-black",
-         active ? "bg-black text-white" : "bg-border text-muted"
-       )}>
-         {marker}
-       </span>
-       <p className={cn(
-         "text-xs leading-relaxed line-clamp-1 font-medium",
-         active ? "text-foreground" : "text-muted"
-       )}>
-         {content || "No activity scheduled"}
-       </p>
     </div>
   );
 }

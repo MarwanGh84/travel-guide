@@ -2,19 +2,33 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { defaultTravelProfile, defaultUser } from "@/lib/data/defaults";
 import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
-import { tripLength } from "@/lib/utils";
+import { normalizeName, tripLength } from "@/lib/utils";
 
 const primaryTripInclude = Prisma.validator<Prisma.TripInclude>()({
   destinationRecommendations: true,
   placeRecommendations: true,
   savedPlaces: { include: { placeRecommendation: true }, orderBy: [{ priority: "asc" }, { createdAt: "asc" }] },
-  itineraryDays: { include: { items: { orderBy: { sortOrder: "asc" } } } },
+  itineraryDays: { include: { items: { include: { placeRecommendation: true }, orderBy: { sortOrder: "asc" } } } },
   budgetCategories: true,
   expenses: true,
   bookings: true,
   documentNotes: true,
   memories: true,
+  destinationIntel: true,
 });
+
+export function toDestinationIntel(trip: PrimaryTrip) {
+  if (!trip.destinationIntel) return null;
+  const intel = trip.destinationIntel;
+  return {
+    overview: intel.overview,
+    neighborhoods: intel.neighborhoods ? intel.neighborhoods.split(", ") : [],
+    culture: intel.culture,
+    history: intel.history,
+    practicalNotes: intel.practicalNotes ? intel.practicalNotes.split("\n") : [],
+    source: intel.source
+  };
+}
 
 export type PrimaryTrip = Prisma.TripGetPayload<{ include: typeof primaryTripInclude }>;
 
@@ -36,20 +50,39 @@ export async function getOrCreateUser() {
 
 export async function getPrimaryTrip(): Promise<PrimaryTrip | null> {
   const user = await getOrCreateUser();
-  return prisma.trip.findFirst({
-    where: { userId: user.id },
-    orderBy: [{ createdAt: "desc" }, { updatedAt: "desc" }],
+  if (!user.activeTripId) return null;
+
+  const trip = await prisma.trip.findFirst({
+    where: { id: user.activeTripId, userId: user.id },
     include: primaryTripInclude,
-  }).then((trip) => {
-    if (!trip) return null;
-    return {
-      ...trip,
-      itineraryDays: [...trip.itineraryDays].sort((a, b) => a.date.getTime() - b.date.getTime()),
-      expenses: [...trip.expenses].sort((a, b) => b.spentAt.getTime() - a.spentAt.getTime()),
-      bookings: [...trip.bookings].sort((a, b) => (a.startAt?.getTime() ?? 0) - (b.startAt?.getTime() ?? 0)),
-      documentNotes: [...trip.documentNotes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-      memories: [...trip.memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-    };
+  });
+
+  if (!trip) return null;
+
+  return {
+    ...trip,
+    itineraryDays: [...trip.itineraryDays].sort((a, b) => a.date.getTime() - b.date.getTime()),
+    expenses: [...trip.expenses].sort((a, b) => b.spentAt.getTime() - a.spentAt.getTime()),
+    bookings: [...trip.bookings].sort((a, b) => (a.startAt?.getTime() ?? 0) - (b.startAt?.getTime() ?? 0)),
+    documentNotes: [...trip.documentNotes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    memories: [...trip.memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+  };
+}
+
+export async function getUserTrips() {
+  const user = await getOrCreateUser();
+  return prisma.trip.findMany({
+    where: { userId: user.id },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    include: {
+      _count: {
+        select: {
+          savedPlaces: true,
+          itineraryDays: true,
+          bookings: true,
+        },
+      },
+    },
   });
 }
 
@@ -72,31 +105,37 @@ export function toTripDraft(trip: PrimaryTrip): TripDraft {
     pace: trip.pace as TripDraft["pace"],
     interests: splitList(trip.interests),
     notes: trip.notes ?? undefined,
+    status: trip.status,
+    itineraryApprovedAt: trip.itineraryApprovedAt?.toISOString() ?? null,
   };
 }
 
 export function toDestinationRecommendations(trip: PrimaryTrip): DestinationRecommendation[] {
-  return trip.destinationRecommendations.map((destination) => ({
-    id: destination.id,
-    name: destination.name,
-    country: destination.country,
-    whyItMatches: destination.whyItMatches,
-    bestThingsToDo: splitList(destination.bestThingsToDo),
-    estimatedCost: destination.estimatedCost,
-    weatherSummary: destination.weatherSummary,
-    flightEstimate: destination.flightEstimate ?? "Flight estimate pending",
-    hotelEstimate: destination.hotelEstimate ?? "Hotel estimate pending",
-    pros: splitList(destination.pros),
-    cons: splitList(destination.cons),
-    bestFor: splitList(destination.bestFor),
-    suggestedTripDuration: destination.suggestedTripDuration,
-    confidenceScore: destination.confidenceScore,
-    source: {
-      provider: destination.source,
-      isMock: destination.source === "not-connected",
-      note: destination.source === "not-connected" ? "Provider not connected." : "Live provider data.",
-    },
-  }));
+  const expectedCountry = trip.destinationCountry?.trim().toLowerCase();
+  return trip.destinationRecommendations
+    .filter((destination) => !expectedCountry || destination.country.trim().toLowerCase() === expectedCountry)
+    .map((destination) => ({
+      id: destination.id,
+      name: destination.name,
+      country: destination.country,
+      whyItMatches: destination.whyItMatches,
+      bestThingsToDo: splitList(destination.bestThingsToDo),
+      estimatedCost: destination.estimatedCost,
+      weatherSummary: destination.weatherSummary,
+      flightEstimate: destination.flightEstimate ?? "Flight estimate pending",
+      hotelEstimate: destination.hotelEstimate ?? "Hotel estimate pending",
+      pros: splitList(destination.pros),
+      cons: splitList(destination.cons),
+      bestFor: splitList(destination.bestFor),
+      suggestedTripDuration: destination.suggestedTripDuration,
+      confidenceScore: destination.confidenceScore,
+      source: {
+        provider: destination.source,
+        isMock: destination.source === "not-connected",
+        note: destination.source === "not-connected" ? "Provider not connected." : "Live provider data.",
+        classification: destination.source === "openai" ? "ai" : destination.source === "not-connected" ? "fallback" : "provider",
+      },
+    }));
 }
 
 export function toPlaceRecommendations(trip: PrimaryTrip): PlaceRecommendation[] {
@@ -113,10 +152,11 @@ export function toPlaceRecommendations(trip: PrimaryTrip): PlaceRecommendation[]
     whyRecommended: place.whyRecommended,
     isHiddenGem: place.isHiddenGem,
     hiddenGemScore: place.hiddenGemScore,
-    source: {
-      provider: place.source,
-      isMock: place.source === "not-connected",
-      note: place.source === "not-connected" ? "Google Places not connected." : "Live places data.",
+      source: {
+        provider: place.source,
+        isMock: place.source === "not-connected",
+        note: place.source === "not-connected" ? "Google Places not connected." : "Live places data.",
+        classification: place.source === "not-connected" ? "fallback" : "provider",
     },
   }));
 }
@@ -142,6 +182,7 @@ export function toSelectedPlaceRecommendations(trip: PrimaryTrip): PlaceRecommen
           provider: place.source,
           isMock: place.source === "not-connected",
           note: place.source === "not-connected" ? "Google Places not connected." : "Live places data.",
+          classification: place.source === "not-connected" ? "fallback" : "provider",
         },
       };
     }
@@ -160,6 +201,7 @@ export function toSelectedPlaceRecommendations(trip: PrimaryTrip): PlaceRecommen
         provider: "saved",
         isMock: false,
         note: "Saved from your trip plan.",
+        classification: "manual",
       },
     };
   });
@@ -181,6 +223,28 @@ export function toItineraryDays(trip: PrimaryTrip): ItineraryDay[] {
     backupOption: day.backupOption ?? "",
     notes: day.notes ?? "",
   }));
+}
+
+export function toRoutePlaceRecommendations(trip: PrimaryTrip): PlaceRecommendation[] {
+  const selectedPlaces = toSelectedPlaceRecommendations(trip).filter(hasCoordinates);
+  if (selectedPlaces.length >= 2) return selectedPlaces;
+
+  const allPlaces = toPlaceRecommendations(trip);
+  const placesByName = new Map(allPlaces.map((place) => [normalizeName(place.name), place]));
+  const itineraryPlaces: PlaceRecommendation[] = [];
+  const seen = new Set<string>();
+
+  trip.itineraryDays.forEach((day) => {
+    day.items.forEach((item) => {
+      const place = placesByName.get(normalizeName(item.title));
+      if (!place || !hasCoordinates(place) || seen.has(place.id)) return;
+      seen.add(place.id);
+      itineraryPlaces.push(place);
+    });
+  });
+
+  if (itineraryPlaces.length >= 2) return itineraryPlaces;
+  return allPlaces.filter(hasCoordinates);
 }
 
 function inferStoredDayCost(trip: PrimaryTrip, items: PrimaryTrip["itineraryDays"][number]["items"]) {
@@ -217,6 +281,10 @@ export function formString(formData: FormData, key: string, fallback = "") {
 function normalizeCostLevel(value: string | null): "$" | "$$" | "$$$" | "$$$$" {
   if (value === "$" || value === "$$" || value === "$$$" || value === "$$$$") return value;
   return "$$";
+}
+
+function hasCoordinates(place: PlaceRecommendation) {
+  return Boolean(place.coordinates && Number.isFinite(place.coordinates.lat) && Number.isFinite(place.coordinates.lng));
 }
 
 export async function createDefaultTripChildren(tripId: string) {

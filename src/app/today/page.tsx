@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { 
   CloudSun, 
-  Navigation, 
   MapPin, 
   Sparkles,
   Ticket,
   RefreshCw,
-  Clock
+  Clock,
+  ShieldCheck
 } from "lucide-react";
 import { NearbyIdeasCard } from "@/components/travel/nearby-ideas-card";
 import { TodayWorkspace } from "@/components/travel/today-workspace";
@@ -59,16 +59,16 @@ export default async function TodayPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden lg:flex-row">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background">
       {/* 1. Header Command Area */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6 w-full lg:absolute lg:top-0 lg:z-30 lg:bg-surface/80 lg:backdrop-blur-md">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6 z-30">
         <div className="flex items-center gap-8">
            <div className="flex flex-col gap-1">
               <span className="text-[9px] font-black tracking-widest text-muted uppercase">Today&apos;s Focus</span>
               <span className="text-xl font-bold tracking-tight">{formatDate(today.date)}</span>
            </div>
-           <div className="h-8 w-px bg-border/50" />
-           <div className="flex items-center gap-4">
+           <div className="h-8 w-px bg-border/50 hidden sm:block" />
+           <div className="hidden items-center gap-4 sm:flex">
               <article className="flex items-center gap-3">
                  <span className="text-[10px] font-black uppercase tracking-widest text-muted">Telemetry Synced</span>
                  <div className="size-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
@@ -82,27 +82,27 @@ export default async function TodayPage() {
                  Full Timeline
               </button>
            </Link>
-           <Link href="/today" className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-4 text-[10px] font-bold uppercase tracking-widest text-foreground hover:bg-surface transition-all shadow-sm">
-              <RefreshCw size={12} /> Refresh Weather
-           </Link>
-           <a href="#adjustment-panel" className="flex h-9 items-center gap-2 rounded-md bg-black px-4 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-zinc-800 transition-all shadow-xl">
+           <button className="hidden h-9 items-center gap-2 rounded-md border border-border bg-background px-4 text-[10px] font-bold uppercase tracking-widest text-foreground hover:bg-surface transition-all shadow-sm lg:flex">
+              <RefreshCw size={12} /> Sync Weather
+           </button>
+           <button className="flex h-9 items-center gap-2 rounded-md bg-black px-4 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-zinc-800 transition-all shadow-xl">
               <Sparkles size={12} /> Adjust Day
-           </a>
+           </button>
         </div>
       </header>
 
       {/* 2. Content Workspace */}
-      <main className="flex-1 overflow-hidden flex flex-col lg:flex-row lg:pt-16">
+      <main className="flex-1 overflow-hidden flex flex-col lg:flex-row">
         
         {/* Left: Agenda Timeline */}
-        <section className="flex-1 overflow-y-auto p-6 lg:p-12 bg-background border-r border-border">
+        <section className="flex-1 overflow-y-auto p-8 lg:p-12 xl:p-20 bg-background border-r border-border scrollbar-hide">
            <div className="max-w-3xl mx-auto space-y-16">
               <header>
                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Daily Theme</span>
-                 <h1 className="mt-2 text-3xl lg:text-5xl font-black tracking-tighter uppercase">{today.theme}</h1>
+                 <h1 className="mt-4 text-4xl lg:text-6xl font-black tracking-tighter uppercase text-foreground leading-none">{today.theme}</h1>
               </header>
 
-              <div className="space-y-12 pb-24">
+              <div className="space-y-16 pb-24">
                  <AgendaNode marker="08:00" title="MORNING" content={today.morningPlan} />
                  <AgendaNode marker="13:00" title="AFTERNOON" content={today.afternoonPlan} />
                  <AgendaNode marker="19:00" title="EVENING" content={today.eveningPlan} />
@@ -111,9 +111,9 @@ export default async function TodayPage() {
         </section>
 
         {/* Right: Intelligence Rail */}
-        <aside className="w-full lg:w-[400px] shrink-0 overflow-y-auto bg-surface p-6 lg:p-8 space-y-10">
+        <aside className="w-full lg:w-[400px] shrink-0 overflow-y-auto bg-surface p-6 lg:p-8 space-y-12 scrollbar-hide">
            {/* Dynamic Weather Widget */}
-           <section id="adjustment-panel">
+           <section>
               <div className="flex items-center justify-between mb-6">
                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Live Telemetry</h3>
                  <CloudSun size={12} className="text-muted" />
@@ -158,14 +158,15 @@ export default async function TodayPage() {
               </div>
            </section>
 
+           {/* Logistics Widget */}
            <section>
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Next Booking</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Active Logistics</h3>
                  <Ticket size={12} className="text-muted" />
               </div>
               {nextBooking ? (
                 <article className="rounded-xl border border-border bg-background p-5 shadow-sm">
-                   <h4 className="text-xs font-bold uppercase">{nextBooking.title}</h4>
+                   <h4 className="text-xs font-bold uppercase tracking-tight">{nextBooking.title}</h4>
                    <p className="mt-1 text-[10px] font-medium text-muted uppercase tracking-widest">{nextBooking.provider || "N/A"}</p>
                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
                       <span className="text-[10px] font-bold text-foreground">CONFIRMATION</span>
@@ -173,15 +174,16 @@ export default async function TodayPage() {
                    </div>
                 </article>
               ) : (
-                <div className="rounded-xl border border-dashed border-border p-6 text-center opacity-40">
-                   <p className="text-[10px] font-bold uppercase tracking-widest">No active bookings</p>
+                <div className="rounded-xl border border-dashed border-border p-6 text-center opacity-40 bg-background/50">
+                   <p className="text-[10px] font-bold uppercase tracking-widest">No segments identified</p>
                 </div>
               )}
            </section>
 
+           {/* Adjustment Control */}
            <section>
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Studio Adjustment</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Logical Studio</h3>
                  <Sparkles size={12} className="text-muted" />
               </div>
               <div className="rounded-xl border border-border bg-background overflow-hidden shadow-sm">
@@ -189,27 +191,26 @@ export default async function TodayPage() {
               </div>
            </section>
 
-           <section>
+           {/* Nearby Intelligence */}
+           <section className="pb-12">
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Local Curation</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Nearby Intel</h3>
                  <MapPin size={12} className="text-muted" />
               </div>
-              <div className="rounded-xl border border-border bg-background p-5 shadow-sm">
-                 <NearbyIdeasCard places={places} />
-              </div>
+              <NearbyIdeasCard places={places} />
            </section>
         </aside>
 
       </main>
 
       {/* 3. Global Status Rail */}
-      <footer className="flex h-10 shrink-0 items-center justify-between border-t border-border bg-surface px-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted">
+      <footer className="flex h-10 shrink-0 items-center justify-between border-t border-border bg-surface px-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted z-30">
          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-2"><Navigation size={12} /> GPS CONNECTED</span>
-            <span className="flex items-center gap-2 font-bold text-foreground uppercase tracking-wider">{trip?.destination} BRIEF ACTIVE</span>
+            <span className="flex items-center gap-2"><ShieldCheck size={12} className="text-emerald-500" /> SECURE HANDOFF</span>
+            <span className="flex items-center gap-2 font-bold text-foreground uppercase tracking-wider">{trip.destination} SECTOR ACTIVE</span>
          </div>
-         <div className="flex items-center gap-6">
-            <span>PRESS CMD+K FOR SHORTCUTS</span>
+         <div className="hidden items-center gap-6 sm:flex">
+            <span>LAST SYNC: {new Date().toLocaleTimeString()}</span>
          </div>
       </footer>
     </div>
@@ -218,14 +219,14 @@ export default async function TodayPage() {
 
 function AgendaNode({ marker, title, content }: { marker: string, title: string, content?: string }) {
   return (
-    <div className="relative pl-24 before:absolute before:left-[11px] before:top-8 before:h-full before:w-px before:bg-border last:before:hidden">
-       <span className="absolute left-0 top-1 text-[11px] font-black font-mono text-muted">{marker}</span>
+    <div className="relative pl-32 before:absolute before:left-[11px] before:top-8 before:h-full before:w-px before:bg-border last:before:hidden">
+       <span className="absolute left-0 top-1 text-[11px] font-black font-mono text-muted tracking-widest">{marker}</span>
        <div className="absolute left-[8px] top-1.5 size-2 rounded-full bg-black ring-4 ring-background" />
        
-       <div className="space-y-3">
+       <div className="space-y-4">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">{title}</p>
-          <p className="text-xl font-bold leading-relaxed text-foreground tracking-tight">
-             {content || "Nothing scheduled for this window."}
+          <p className="text-2xl font-bold leading-relaxed text-foreground tracking-tight">
+             {content || "No operational requirements scheduled for this phase."}
           </p>
        </div>
     </div>

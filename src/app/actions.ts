@@ -5,8 +5,7 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { getHiddenGemScore, recommendDestinations } from "@/lib/ai/openai";
-import { getPlacesForTrip } from "@/lib/api/placesService";
+import { recommendDestinations } from "@/lib/ai/openai";
 import {
   createDefaultTripChildren,
   formString,
@@ -17,10 +16,12 @@ import {
   toTripDraft,
 } from "@/lib/db/travel";
 import { TripDraftSchema } from "@/lib/validation/schemas";
-import type { DestinationRecommendation, PlaceRecommendation } from "@/lib/types/travel";
+import type { DestinationRecommendation } from "@/lib/types/travel";
+
+import { aggregateIntelligence } from "@/lib/api/placeSources/sourceAggregator";
 
 const revalidateAll = () => {
-  ["/", "/trips", "/discover", "/itinerary", "/map", "/budget", "/bookings", "/imports", "/documents", "/today", "/memories", "/profile"].forEach((path) => revalidatePath(path));
+  ["/", "/trips", "/discover", "/itinerary", "/map", "/stays", "/currency", "/budget", "/bookings", "/imports", "/documents", "/today", "/memories", "/profile"].forEach((path) => revalidatePath(path));
 };
 
 export async function createTrip(formData: FormData) {
@@ -44,6 +45,7 @@ export async function createTrip(formData: FormData) {
     pace: formString(formData, "pace", "medium"),
     interests: interestsList,
     notes: formString(formData, "notes"),
+    status: "planning",
   };
 
   const validation = TripDraftSchema.safeParse(rawData);
@@ -77,54 +79,13 @@ export async function createTrip(formData: FormData) {
       status: "planning",
     },
   });
+  await prisma.user.update({ where: { id: user.id }, data: { activeTripId: trip.id } });
   await createDefaultTripChildren(trip.id);
 
-  const destinations = await recommendDestinations(tripDraft);
-  if (destinations.data.length) {
-    await prisma.destinationRecommendation.createMany({
-      data: destinations.data.map((destination: DestinationRecommendation) => ({
-        tripId: trip.id,
-        name: destination.name,
-        country: destination.country,
-        whyItMatches: destination.whyItMatches,
-        bestThingsToDo: destination.bestThingsToDo.join(", "),
-        estimatedCost: destination.estimatedCost,
-        weatherSummary: destination.weatherSummary,
-        flightEstimate: destination.flightEstimate,
-        hotelEstimate: destination.hotelEstimate,
-        pros: destination.pros.join(", "),
-        cons: destination.cons.join(", "),
-        bestFor: destination.bestFor.join(", "),
-        suggestedTripDuration: destination.suggestedTripDuration,
-        confidenceScore: destination.confidenceScore,
-        source: destinations.isMock ? "not-connected" : "openai",
-      })),
-    });
-  }
+  // Background intelligence triggering
+  void refreshPlacesFromProvider();
 
-  if (tripDraft.destination) {
-    const places = await getPlacesForTrip(tripDraft);
-    if (places.length) {
-      await prisma.placeRecommendation.createMany({
-        data: places.map((place: PlaceRecommendation) => ({
-          tripId: trip.id,
-          name: place.name,
-          category: place.category,
-          description: place.description,
-          rating: place.rating,
-          costLevel: place.costLevel,
-          location: place.location,
-          latitude: place.coordinates?.lat,
-          longitude: place.coordinates?.lng,
-          openingStatus: place.openingStatus,
-          whyRecommended: place.whyRecommended,
-          hiddenGemScore: getHiddenGemScore(place.name, place.category),
-          isHiddenGem: place.isHiddenGem,
-          source: place.source.provider,
-        })),
-      });
-    }
-  }
+  await recommendDestinations(tripDraft);
 
   revalidateAll();
   redirect("/discover");
@@ -334,25 +295,87 @@ async function saveUploadedFile(value: FormDataEntryValue | null) {
 export async function refreshPlacesFromProvider() {
   const trip = await getPrimaryTrip();
   if (!trip) return;
-  const places = await getPlacesForTrip(toTripDraft(trip));
-  await prisma.placeRecommendation.deleteMany({ where: { tripId: trip.id } });
-  await prisma.placeRecommendation.createMany({
-    data: places.map((place: PlaceRecommendation) => ({
-      tripId: trip.id,
-      name: place.name,
-      category: place.category,
-      description: place.description,
-      rating: place.rating,
-      costLevel: place.costLevel,
-      location: place.location,
-      latitude: place.coordinates?.lat,
-      longitude: place.coordinates?.lng,
-      openingStatus: place.openingStatus,
-      whyRecommended: place.whyRecommended,
-      hiddenGemScore: getHiddenGemScore(place.name, place.category),
-      isHiddenGem: place.isHiddenGem,
-      source: place.source.provider,
-    })),
+  
+  const tripDraft = toTripDraft(trip);
+  const { places, intelligence } = await aggregateIntelligence(tripDraft);
+  
+  const savedPlaces = await prisma.savedPlace.findMany({ where: { tripId: trip.id } });
+  const existingPlaces = await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } });
+  
+  await prisma.$transaction(async (tx) => {
+    if (intelligence) {
+      await tx.destinationIntel.upsert({
+        where: { tripId: trip.id },
+        update: {
+          overview: intelligence.overview,
+          neighborhoods: intelligence.neighborhoods?.join(", "),
+          culture: intelligence.culture,
+          history: intelligence.history,
+          practicalNotes: intelligence.practicalNotes?.join("\n"),
+          source: intelligence.source,
+        },
+        create: {
+          tripId: trip.id,
+          overview: intelligence.overview,
+          neighborhoods: intelligence.neighborhoods?.join(", "),
+          culture: intelligence.culture,
+          history: intelligence.history,
+          practicalNotes: intelligence.practicalNotes?.join("\n"),
+          source: intelligence.source,
+        }
+      });
+    }
+
+    const existingByName = new Map(existingPlaces.map((place) => [normalizePlaceKey(place.name), place]));
+    const refreshedIds = new Set<string>();
+
+    for (const place of places) {
+      const existing = existingByName.get(normalizePlaceKey(place.name));
+      const data = {
+        name: place.name,
+        category: place.category,
+        description: place.description || "",
+        rating: place.rating,
+        costLevel: "$$",
+        location: place.address || "Local area",
+        latitude: place.latitude,
+        longitude: place.longitude,
+        whyRecommended: `Discovered via ${place.source} intelligence pipeline.`,
+        hiddenGemScore: place.hiddenGemScore || 0,
+        isHiddenGem: (place.hiddenGemScore || 0) >= 75,
+        source: place.source,
+      };
+
+      if (existing) {
+        await tx.placeRecommendation.update({
+          where: { id: existing.id },
+          data,
+        });
+        refreshedIds.add(existing.id);
+      } else {
+        const created = await tx.placeRecommendation.create({
+          data: {
+            tripId: trip.id,
+            ...data,
+          },
+        });
+        refreshedIds.add(created.id);
+      }
+    }
+
+    const savedRecommendationIds = new Set(
+      savedPlaces
+        .map((place) => place.placeRecommendationId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    await tx.placeRecommendation.deleteMany({
+      where: {
+        tripId: trip.id,
+        id: {
+          notIn: [...refreshedIds, ...savedRecommendationIds],
+        },
+      },
+    });
   });
   revalidateAll();
 }
@@ -388,15 +411,75 @@ export async function refreshDestinationsFromAi() {
 export async function deleteTrip() {
   const trip = await getPrimaryTrip();
   if (!trip) return;
+  
   await prisma.trip.delete({ where: { id: trip.id } });
+  await prisma.user.update({
+    where: { id: trip.userId },
+    data: { activeTripId: null },
+  });
+
   revalidateAll();
   redirect("/trips");
+}
+
+export async function selectTrip(formData: FormData) {
+  const tripId = formString(formData, "tripId");
+  if (!tripId) return;
+
+  const user = await getOrCreateUser();
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, userId: user.id },
+  });
+
+  if (!trip) return;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { activeTripId: trip.id },
+  });
+
+  revalidateAll();
 }
 
 export async function clearItinerary() {
   const trip = await getPrimaryTrip();
   if (!trip) return;
   await prisma.itineraryDay.deleteMany({ where: { tripId: trip.id } });
+  revalidateAll();
+}
+
+export async function approveItinerary() {
+  const trip = await getPrimaryTrip();
+  if (!trip) return;
+  
+  if (trip.itineraryDays.length === 0) {
+    throw new Error("Cannot approve an empty itinerary. Generate or add days first.");
+  }
+
+  await prisma.trip.update({
+    where: { id: trip.id },
+    data: {
+      status: "itinerary_approved",
+      itineraryApprovedAt: new Date(),
+    },
+  });
+
+  revalidateAll();
+  redirect("/stays");
+}
+
+export async function reopenItinerary() {
+  const trip = await getPrimaryTrip();
+  if (!trip) return;
+
+  await prisma.trip.update({
+    where: { id: trip.id },
+    data: {
+      status: "planning",
+      itineraryApprovedAt: null,
+    },
+  });
+
   revalidateAll();
 }
 
@@ -484,4 +567,8 @@ export async function removeSelectedPlace(formData: FormData) {
 
   await prisma.savedPlace.delete({ where: { id: savedPlace.id } });
   revalidateAll();
+}
+
+function normalizePlaceKey(value: string) {
+  return value.trim().toLowerCase();
 }

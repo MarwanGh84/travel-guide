@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildStaticMapUrl, getMapRoute } from "@/lib/api/mapsService";
-import { getPrimaryTrip, toPlaceRecommendations } from "@/lib/db/travel";
+import { getPrimaryTrip, toRoutePlaceRecommendations } from "@/lib/db/travel";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const routePath = searchParams.get("route") !== "false";
   const zoomParam = Number(searchParams.get("zoom"));
   const trip = await getPrimaryTrip();
-  const places = trip ? toPlaceRecommendations(trip) : [];
+  const places = trip ? toRoutePlaceRecommendations(trip) : [];
   const route = await getMapRoute(places);
   const zoom = Number.isFinite(zoomParam) ? Math.min(18, Math.max(3, Math.round(zoomParam))) : undefined;
   const url = buildStaticMapUrl(route, `${Math.min(width, 1200)}x${Math.min(height, 1200)}`, { markers, routePath, zoom });

@@ -14,7 +14,7 @@ export function DestinationCard({ destination }: { destination: DestinationRecom
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(132,215,208,0.24),transparent_16rem),radial-gradient(circle_at_90%_80%,rgba(216,183,106,0.26),transparent_18rem)]" />
           <div className="relative flex h-full min-h-36 flex-col justify-between">
             <div className="flex items-center justify-between gap-3">
-              <SourceBadge provider={destination.source.provider} live={destination.source.provider !== "mock"} />
+              <SourceBadge provider={destination.source.provider} live={destination.source.classification === "provider"} />
               <StatusBadge tone="warm">{destination.confidenceScore}% match</StatusBadge>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -31,7 +31,15 @@ export function DestinationCard({ destination }: { destination: DestinationRecom
       </div>
       <div className="grid gap-2 text-sm leading-6 text-[var(--muted)]">
         <p><Star className="mr-2 inline text-[var(--amber)]" />{destination.bestThingsToDo.slice(0, 3).join(", ")}</p>
+      </div>
+      <div className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-[var(--muted)]">
+        <div className="mb-2 flex flex-wrap gap-2">
+          <StatusBadge tone="warm">AI estimate</StatusBadge>
+          <StatusBadge>Not live provider data</StatusBadge>
+        </div>
         <p><Plane className="mr-2 inline text-[var(--cyan)]" />{destination.flightEstimate}</p>
+        <p>Weather assumption: {destination.weatherSummary}</p>
+        <p>Hotel assumption: {destination.hotelEstimate}</p>
       </div>
       <form action={planDestination}>
         <input type="hidden" name="destinationId" value={destination.id} />
