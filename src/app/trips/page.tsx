@@ -35,6 +35,7 @@ type Brief = {
   country: string | null;
   startDate: string;
   endDate: string;
+  duration: number;
   budget: number;
   pace: string;
   travelStyle: string;
@@ -102,6 +103,7 @@ export default function TripsPage() {
     startTransition(async () => {
       await selectTrip(formData);
       await fetchState();
+      window.dispatchEvent(new Event("trip-status-refresh"));
       setStep(0);
     });
   };
@@ -111,6 +113,7 @@ export default function TripsPage() {
     startTransition(async () => {
       await deleteTrip();
       await fetchState();
+      window.dispatchEvent(new Event("trip-status-refresh"));
       setStep(0);
     });
   };
@@ -139,9 +142,20 @@ export default function TripsPage() {
                <div className="space-y-4">
                   <BriefItem icon={MapPin} label="Route" value={`${activeBrief.destination || 'Global'}, ${activeBrief.country || 'Anywhere'}`} />
                   <BriefItem icon={Calendar} label="Window" value={`${activeBrief.startDate} — ${activeBrief.endDate}`} />
+                  <BriefItem icon={Calendar} label="Duration" value={`${activeBrief.duration} days`} />
                   <BriefItem icon={Wallet} label="Capital" value={formatCurrency(activeBrief.budget)} />
                   <BriefItem icon={Activity} label="Pace" value={activeBrief.pace} />
                </div>
+
+               {activeBrief.interests.length > 0 && (
+                 <div className="mt-4 flex flex-wrap gap-2">
+                   {activeBrief.interests.map((interest) => (
+                     <span key={interest} className="rounded-full border border-border bg-surface px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-muted">
+                       {interest}
+                     </span>
+                   ))}
+                 </div>
+               )}
 
                <div className="mt-6 pt-4 border-t border-border">
                   <button 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { 
   CloudSun, 
   MapPin, 
@@ -26,6 +27,7 @@ type TripStatus = {
   savedPlacesCount: number;
   bookingCount: number;
   itineraryStatus: string;
+  currency?: string | null;
   weather?: {
     temp: string;
     label: string;
@@ -34,25 +36,34 @@ type TripStatus = {
 };
 
 export function TripStatusBar() {
+  const pathname = usePathname();
   const [data, setData] = useState<TripStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchStatus() {
-      try {
-        const response = await fetch("/api/ai/summary");
-        const result = await response.json();
-        if (result.ok && result.trip) {
-          setData(result.trip);
-        }
-      } catch (error) {
-        console.error("Failed to fetch trip status", error);
-      } finally {
-        setLoading(false);
-      }
+  const fetchStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/ai/summary");
+      const result = await response.json();
+      setData(result.ok && result.trip ? result.trip : null);
+    } catch (error) {
+      console.error("Failed to fetch trip status", error);
+      setData(null);
+    } finally {
+      setLoading(false);
     }
-    fetchStatus();
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchStatus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchStatus, pathname]);
+
+  useEffect(() => {
+    window.addEventListener("trip-status-refresh", fetchStatus);
+    return () => window.removeEventListener("trip-status-refresh", fetchStatus);
+  }, [fetchStatus]);
 
   if (loading) return <div className="h-10 border-b border-border bg-surface/50 animate-pulse" />;
   if (!data) return (
@@ -71,6 +82,12 @@ export function TripStatusBar() {
        <Divider />
        <StatusItem icon={Wallet} label="Budget" value={formatCurrency(data.budget)} />
        <Divider />
+       {data.currency && (
+         <>
+           <StatusItem icon={Wallet} label="Currency" value={data.currency} />
+           <Divider />
+         </>
+       )}
        {data.weather && (
          <>
            <StatusItem icon={CloudSun} label="Climate" value={`${data.weather.temp} ${data.weather.label}`} />
@@ -88,8 +105,8 @@ export function TripStatusBar() {
   return (
     <div className="group relative flex h-10 w-full items-center overflow-hidden border-b border-border bg-surface select-none">
        {/* Gradient Masks for edges */}
-       <div className="absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-surface to-transparent" />
-       <div className="absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-surface to-transparent" />
+       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-surface to-transparent" />
+       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-surface to-transparent" />
 
        {/* Continuous Marquee Wrapper */}
        <div className="flex w-fit">

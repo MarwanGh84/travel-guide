@@ -80,6 +80,13 @@ export async function createTrip(formData: FormData) {
     },
   });
   await prisma.user.update({ where: { id: user.id }, data: { activeTripId: trip.id } });
+  const activeUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { activeTripId: true },
+  });
+  if (activeUser?.activeTripId !== trip.id) {
+    throw new Error("Trip was created, but active trip selection could not be confirmed.");
+  }
   await createDefaultTripChildren(trip.id);
 
   // Background intelligence triggering
@@ -413,9 +420,14 @@ export async function deleteTrip() {
   if (!trip) return;
   
   await prisma.trip.delete({ where: { id: trip.id } });
+  const nextTrip = await prisma.trip.findFirst({
+    where: { userId: trip.userId },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true },
+  });
   await prisma.user.update({
     where: { id: trip.userId },
-    data: { activeTripId: null },
+    data: { activeTripId: nextTrip?.id ?? null },
   });
 
   revalidateAll();

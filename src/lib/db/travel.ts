@@ -50,14 +50,28 @@ export async function getOrCreateUser() {
 
 export async function getPrimaryTrip(): Promise<PrimaryTrip | null> {
   const user = await getOrCreateUser();
-  if (!user.activeTripId) return null;
-
-  const trip = await prisma.trip.findFirst({
-    where: { id: user.activeTripId, userId: user.id },
-    include: primaryTripInclude,
-  });
+  const activeTrip = user.activeTripId
+    ? await prisma.trip.findFirst({
+        where: { id: user.activeTripId, userId: user.id },
+        include: primaryTripInclude,
+      })
+    : null;
+  const trip =
+    activeTrip ??
+    (await prisma.trip.findFirst({
+      where: { userId: user.id },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      include: primaryTripInclude,
+    }));
 
   if (!trip) return null;
+
+  if (trip.id !== user.activeTripId) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { activeTripId: trip.id },
+    });
+  }
 
   return {
     ...trip,
