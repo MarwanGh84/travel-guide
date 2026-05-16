@@ -1,0 +1,289 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String?            @unique
+  name              String             @default("Marwan")
+  profile           TravelProfile?
+  trips             Trip[]
+  connectedAccounts ConnectedAccount[]
+  aiLogs            AiGenerationLog[]
+  apiLogs           ApiProviderLog[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model ConnectedAccount {
+  id           String    @id @default(cuid())
+  userId       String
+  provider     String
+  providerUser String?
+  email        String?
+  accessToken  String
+  refreshToken String?
+  scope        String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model TravelProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  preferredHotelType    String?
+  travelPace            String   @default("medium")
+  foodPreferences       String?
+  budgetStyle           String   @default("balanced")
+  favoriteActivities    String?
+  thingsToAvoid         String?
+  homeAirport           String?
+  passportNationality   String?
+  hiddenGemInterest     Boolean  @default(true)
+  preferredTravelMonths String?
+  notes                 String?
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Trip {
+  id                         String                      @id @default(cuid())
+  userId                     String
+  name                       String
+  destination                String?
+  destinationCountry         String?
+  departureCity              String
+  startDate                  DateTime
+  endDate                    DateTime
+  travelerCount              Int                         @default(1)
+  budget                     Float
+  currency                   String                      @default("USD")
+  travelStyle                String
+  pace                       String
+  interests                  String
+  notes                      String?
+  status                     String                      @default("planning")
+  user                       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  travelers                  Traveler[]
+  destinationRecommendations DestinationRecommendation[]
+  placeRecommendations       PlaceRecommendation[]
+  savedPlaces                SavedPlace[]
+  itineraryDays              ItineraryDay[]
+  budgetCategories           BudgetCategory[]
+  expenses                   Expense[]
+  bookings                   Booking[]
+  documentNotes              DocumentNote[]
+  memories                   Memory[]
+  aiLogs                     AiGenerationLog[]
+  apiLogs                    ApiProviderLog[]
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+}
+
+model Traveler {
+  id        String   @id @default(cuid())
+  tripId    String
+  name      String
+  role      String?
+  notes     String?
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model DestinationRecommendation {
+  id                    String   @id @default(cuid())
+  tripId                String?
+  name                  String
+  country               String
+  whyItMatches          String
+  bestThingsToDo        String
+  estimatedCost         Float
+  weatherSummary        String
+  flightEstimate        String?
+  hotelEstimate         String?
+  pros                  String
+  cons                  String
+  bestFor               String
+  suggestedTripDuration String
+  confidenceScore       Int
+  source                String   @default("not-connected")
+  trip                  Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdAt             DateTime @default(now())
+}
+
+model PlaceRecommendation {
+  id                 String   @id @default(cuid())
+  tripId             String
+  name               String
+  category           String
+  description        String
+  rating             Float?
+  costLevel          String?
+  location           String
+  latitude           Float?
+  longitude          Float?
+  openingStatus      String?
+  whyRecommended     String
+  hiddenGemScore     Int      @default(0)
+  isHiddenGem        Boolean  @default(false)
+  source             String   @default("not-connected")
+  trip               Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  savedPlaces        SavedPlace[]
+  itineraryItems     ItineraryItem[]
+  createdAt          DateTime @default(now())
+}
+
+model SavedPlace {
+  id                    String               @id @default(cuid())
+  tripId                String
+  placeRecommendationId String?
+  name                  String
+  category              String
+  notes                 String?
+  priority              Int                  @default(2)
+  trip                  Trip                 @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  placeRecommendation   PlaceRecommendation? @relation(fields: [placeRecommendationId], references: [id], onDelete: SetNull)
+  createdAt             DateTime             @default(now())
+}
+
+model ItineraryDay {
+  id              String          @id @default(cuid())
+  tripId          String
+  date            DateTime
+  theme           String
+  morningPlan     String
+  afternoonPlan   String
+  eveningPlan     String
+  restaurantIdeas String?
+  hiddenGem       String?
+  estimatedCost   Float          @default(0)
+  transportNotes  String?
+  backupOption    String?
+  notes           String?
+  trip            Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items           ItineraryItem[]
+}
+
+model ItineraryItem {
+  id                    String               @id @default(cuid())
+  itineraryDayId        String
+  placeRecommendationId String?
+  title                 String
+  timeOfDay             String
+  description           String
+  estimatedCost         Float                @default(0)
+  sortOrder             Int                  @default(0)
+  itineraryDay          ItineraryDay         @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
+  placeRecommendation   PlaceRecommendation? @relation(fields: [placeRecommendationId], references: [id], onDelete: SetNull)
+}
+
+model BudgetCategory {
+  id              String  @id @default(cuid())
+  tripId          String
+  name            String
+  estimatedAmount Float
+  actualAmount    Float   @default(0)
+  trip            Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  tripId    String
+  category  String
+  amount    Float
+  currency  String   @default("USD")
+  note      String?
+  spentAt   DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id                 String   @id @default(cuid())
+  tripId             String
+  type               String
+  title              String
+  provider           String?
+  confirmationNumber String?
+  importGroupId      String?
+  importFingerprint  String?
+  sourceMessageId    String?
+  startAt            DateTime?
+  endAt              DateTime?
+  link               String?
+  notes              String?
+  trip               Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, importFingerprint])
+  @@index([tripId, importGroupId])
+}
+
+model DocumentNote {
+  id                String   @id @default(cuid())
+  tripId            String
+  type              String
+  title             String
+  content           String
+  link              String?
+  importGroupId     String?
+  importFingerprint String?
+  sourceMessageId   String?
+  trip              Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@index([tripId, importFingerprint])
+  @@index([tripId, importGroupId])
+}
+
+model Memory {
+  id                 String   @id @default(cuid())
+  tripId             String
+  title              String
+  favoriteMoments    String?
+  placesVisited      String?
+  notes              String?
+  photosPlaceholder  String?
+  finalSummary       String?
+  nextTime           String?
+  rating             Int?
+  favoriteRestaurants String?
+  favoriteHiddenGems String?
+  placesToRevisit    String?
+  trip               Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+}
+
+model AiGenerationLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  tripId    String?
+  type      String
+  prompt    String
+  response  String
+  provider  String   @default("openai")
+  model     String?
+  isMock    Boolean  @default(false)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+}
+
+model ApiProviderLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  tripId      String?
+  provider    String
+  endpoint    String
+  status      String
+  usedMock    Boolean  @default(false)
+  message     String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  trip        Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}

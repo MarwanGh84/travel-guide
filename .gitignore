@@ -20,9 +20,15 @@
 # production
 /build
 
+# local database
+/prisma/dev.db
+/prisma/dev.db-journal
+/public/uploads/
+
 # misc
 .DS_Store
 *.pem
+client_secret_*.json
 
 # debug
 npm-debug.log*
