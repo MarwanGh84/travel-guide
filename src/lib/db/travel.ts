@@ -239,26 +239,65 @@ export function toItineraryDays(trip: PrimaryTrip): ItineraryDay[] {
   }));
 }
 
-export function toRoutePlaceRecommendations(trip: PrimaryTrip): PlaceRecommendation[] {
-  const selectedPlaces = toSelectedPlaceRecommendations(trip).filter(hasCoordinates);
-  if (selectedPlaces.length >= 2) return selectedPlaces;
+export type RoutePlaceRecommendation = PlaceRecommendation & {
+  routeMatch: "linked-record" | "matched-by-name" | "unlinked-itinerary-item" | "saved-place" | "recommendation";
+};
 
+export function toRoutePlaceRecommendations(trip: PrimaryTrip): RoutePlaceRecommendation[] {
   const allPlaces = toPlaceRecommendations(trip);
+  const placesById = new Map(allPlaces.map((place) => [place.id, place]));
   const placesByName = new Map(allPlaces.map((place) => [normalizeName(place.name), place]));
-  const itineraryPlaces: PlaceRecommendation[] = [];
+  const orderedPlaces: RoutePlaceRecommendation[] = [];
   const seen = new Set<string>();
 
   trip.itineraryDays.forEach((day) => {
     day.items.forEach((item) => {
-      const place = placesByName.get(normalizeName(item.title));
-      if (!place || !hasCoordinates(place) || seen.has(place.id)) return;
-      seen.add(place.id);
-      itineraryPlaces.push(place);
+      const linkedPlace = item.placeRecommendationId ? placesById.get(item.placeRecommendationId) : undefined;
+      const matchedPlace = linkedPlace ?? placesByName.get(normalizeName(item.title));
+      if (!matchedPlace) {
+        if (seen.has(item.id)) return;
+        seen.add(item.id);
+        orderedPlaces.push({
+          id: item.id,
+          name: item.title,
+          category: item.timeOfDay,
+          description: item.description,
+          costLevel: "$$",
+          location: "",
+          whyRecommended: "Included in the itinerary but not yet linked to a provider-backed place.",
+          isHiddenGem: false,
+          hiddenGemScore: 0,
+          source: {
+            provider: "itinerary",
+            isMock: false,
+            note: "AI-authored itinerary point without a linked provider record.",
+            classification: "ai",
+          },
+          routeMatch: "unlinked-itinerary-item",
+        });
+        return;
+      }
+      if (seen.has(matchedPlace.id)) return;
+      seen.add(matchedPlace.id);
+      orderedPlaces.push({
+        ...matchedPlace,
+        routeMatch: linkedPlace ? "linked-record" : "matched-by-name",
+      });
     });
   });
 
-  if (itineraryPlaces.length >= 2) return itineraryPlaces;
-  return allPlaces.filter(hasCoordinates);
+  if (orderedPlaces.length > 0) return orderedPlaces;
+
+  const savedPlaces = toSelectedPlaceRecommendations(trip).map((place) => ({
+    ...place,
+    routeMatch: "saved-place" as const,
+  }));
+  if (savedPlaces.length > 0) return savedPlaces;
+
+  return allPlaces.map((place) => ({
+    ...place,
+    routeMatch: "recommendation" as const,
+  }));
 }
 
 function inferStoredDayCost(trip: PrimaryTrip, items: PrimaryTrip["itineraryDays"][number]["items"]) {
@@ -295,10 +334,6 @@ export function formString(formData: FormData, key: string, fallback = "") {
 function normalizeCostLevel(value: string | null): "$" | "$$" | "$$$" | "$$$$" {
   if (value === "$" || value === "$$" || value === "$$$" || value === "$$$$") return value;
   return "$$";
-}
-
-function hasCoordinates(place: PlaceRecommendation) {
-  return Boolean(place.coordinates && Number.isFinite(place.coordinates.lat) && Number.isFinite(place.coordinates.lng));
 }
 
 export async function createDefaultTripChildren(tripId: string) {

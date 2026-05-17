@@ -20,7 +20,7 @@ import {
   Info
 } from "lucide-react";
 
-import { formatDistance, formatDuration, type MapPin as RoutePin, type MapRoute } from "@/lib/api/mapsService";
+import { buildGoogleMapsDirectionsUrl, formatDistance, formatDuration, type MapPin as RoutePin, type MapRoute } from "@/lib/api/mapsService";
 import { cn } from "@/lib/utils";
 
 type InteractiveMapProps = {
@@ -50,20 +50,24 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
   const positions = useMemo(() => projectPins(visiblePins, visibleRoute), [visiblePins, visibleRoute]);
   const routePositions = useMemo(() => projectPins(route.routePins.filter((pin) => visiblePins.some((visible) => visible.id === pin.id)), visibleRoute), [route, visiblePins, visibleRoute]);
   const isEmpty = route.pins.length === 0;
+  const googleMapsRouteUrl = buildGoogleMapsDirectionsUrl(route.routePins);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden lg:flex-row">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
       {/* Sidebar - Controls & Detail */}
-      <aside className="w-full shrink-0 border-b border-border bg-surface lg:w-[350px] lg:border-b-0 lg:border-r">
-        <div className="flex h-full flex-col overflow-hidden">
+      <aside className="w-full shrink-0 border-b border-border bg-surface lg:h-full lg:w-[350px] lg:border-b-0 lg:border-r">
+        <div className="flex min-h-0 flex-col lg:h-full">
           <section className="p-6 lg:p-8 border-b border-border bg-background">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted">Tactical View</span>
             <h1 className="mt-2 text-3xl font-black uppercase tracking-tighter text-foreground">Mission Map</h1>
             <div className="mt-6 flex items-center gap-4">
-               <SummaryItem icon={Milestone} label={route.metricSource === "google-routes" ? "Google total" : route.metricSource === "computed" ? "Computed total" : "Distance"} value={formatDistance(route.distanceMeters)} />
+               <SummaryItem icon={Milestone} label={route.metricSource === "google-routes" ? "Google route total" : route.metricSource === "computed" ? "Computed total" : "Distance"} value={formatDistance(route.distanceMeters)} />
                <div className="h-8 w-px bg-border" />
-               <SummaryItem icon={Clock3} label="Duration" value={formatDuration(route.duration)} />
+               <SummaryItem icon={Clock3} label={route.metricSource === "google-routes" ? "Google duration" : route.metricSource === "computed" ? "Computed duration" : "Duration"} value={formatDuration(route.duration)} />
             </div>
+            <p className="mt-4 text-[9px] font-bold uppercase tracking-widest text-muted">
+              {route.routeNote}
+            </p>
           </section>
 
           {/* Sidebar Nav */}
@@ -74,7 +78,7 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
           </nav>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-8 scrollbar-hide pb-20">
+          <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-6 pb-20 scrollbar-hide lg:p-8">
              {sidebarTab === "list" && (
                <section className="space-y-1">
                   {visiblePins.map((pin, index) => (
@@ -110,9 +114,11 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
                          <h4 className="mt-2 text-xs font-black uppercase tracking-tight text-foreground">{segment.origin}</h4>
                          <div className="my-2 py-1 flex items-center gap-2 text-muted">
                             <ChevronRight size={10} className="rotate-90" />
-                            <span className="text-[8px] font-bold uppercase tracking-widest">Estimated segment distance</span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest">{segmentMetricLabel(segment.metricSource)}</span>
                          </div>
-                         <p className="text-[8px] font-bold uppercase tracking-widest text-muted">Straight-line walking estimate · {formatDuration(segment.duration)}</p>
+                         <p className="text-[8px] font-bold uppercase tracking-widest text-muted">
+                           {segment.metricSource === "straight-line-estimate" ? "Duration unavailable from provider" : formatDuration(segment.duration)}
+                         </p>
                          <h4 className="text-xs font-black uppercase tracking-tight text-foreground">{segment.destination}</h4>
                       </div>
                     ))
@@ -146,6 +152,23 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
                </section>
              )}
 
+             {googleMapsRouteUrl && (
+               <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner">
+                  <header className="mb-4 flex items-center gap-2">
+                     <Navigation size={14} className="text-black" />
+                     <h2 className="text-[10px] font-black uppercase tracking-widest text-foreground">Route Actions</h2>
+                  </header>
+                  <Link
+                    href={googleMapsRouteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-11 items-center justify-center gap-2 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800"
+                  >
+                    <Navigation size={14} /> Open in Google Maps
+                  </Link>
+               </section>
+             )}
+
              {/* Layer Controls - Always visible at bottom of scroll if list is long */}
              <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner mt-8">
                 <header className="mb-4 flex items-center gap-2">
@@ -174,7 +197,7 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
       </aside>
 
       {/* Main Map Stage */}
-      <main className="relative flex-1 overflow-hidden bg-zinc-900">
+      <main className="relative min-h-[420px] flex-1 overflow-hidden bg-zinc-900 lg:min-h-0">
         <div className="absolute inset-0 z-0">
           {mapImageUrl ? (
             <Image src={mapImageUrl} alt="Route Map" fill loading="eager" className="object-cover opacity-60 grayscale-[0.4]" unoptimized />
@@ -257,6 +280,17 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
       <p className="mt-3 text-[9px] font-bold uppercase tracking-widest text-muted">
         {pin.coordinateSource === "google-places-geocoding" ? "Location estimated by geocoding" : "Mapped from provider coordinates"}
       </p>
+      <p className="mt-2 text-[9px] font-bold uppercase tracking-widest text-muted">
+        {pin.matchMethod === "matched-by-name"
+          ? "Matched by name"
+          : pin.matchMethod === "linked-record"
+            ? "Linked provider record"
+            : pin.matchMethod === "saved-place"
+              ? "Saved place order"
+              : pin.matchMethod === "unlinked-itinerary-item"
+                ? "Unlinked itinerary item"
+                : "Recommendation order"}
+      </p>
       
       <div className="mt-10 pt-10 border-t border-border/50">
         <button 
@@ -293,6 +327,11 @@ function SummaryItem({ icon: Icon, label, value }: { icon: LucideIcon, label: st
       <p className="mt-1 text-xl font-bold text-foreground truncate uppercase tracking-tight">{value}</p>
     </div>
   );
+}
+
+function segmentMetricLabel(source: MapRoute["segments"][number]["metricSource"]) {
+  if (source === "straight-line-estimate") return "Straight-line estimate";
+  return "Unavailable";
 }
 
 function isPinVisible(pin: RoutePin, layers: Record<LayerKey, boolean>) {

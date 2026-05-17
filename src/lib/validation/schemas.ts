@@ -134,6 +134,14 @@ export const GoogleTextSearchResponseSchema = z.object({
   })).default([]),
 });
 
+export const GoogleRoutesResponseSchema = z.object({
+  routes: z.array(z.object({
+    distanceMeters: z.number().optional(),
+    duration: z.string().optional(),
+    polyline: z.object({ encodedPolyline: z.string().optional() }).optional(),
+  })).optional(),
+});
+
 export const GeocodeResponseSchema = z.object({
   results: z.array(z.object({
     name: z.string(),

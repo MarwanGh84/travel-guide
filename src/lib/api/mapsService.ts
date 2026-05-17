@@ -1,5 +1,5 @@
-import type { PlaceRecommendation } from "@/lib/types/travel";
-import { GoogleTextSearchResponseSchema } from "@/lib/validation/schemas";
+import type { RoutePlaceRecommendation } from "@/lib/db/travel";
+import { GoogleRoutesResponseSchema, GoogleTextSearchResponseSchema } from "@/lib/validation/schemas";
 
 export type MapPin = {
   id: string;
@@ -11,6 +11,7 @@ export type MapPin = {
   lat: number;
   lng: number;
   coordinateSource: "place-record" | "google-places-geocoding";
+  matchMethod: RoutePlaceRecommendation["routeMatch"];
 };
 
 export type MissingMapPlace = {
@@ -41,12 +42,12 @@ export type MapSegment = {
   destination: string;
   distanceMeters?: number;
   duration?: string;
-  metricSource: "computed";
+  metricSource: "straight-line-estimate";
 };
 
 const fallbackCenter = { lat: 37.9838, lng: 23.7275 };
 
-export async function getMapRoute(places: PlaceRecommendation[]): Promise<MapRoute> {
+export async function getMapRoute(places: RoutePlaceRecommendation[]): Promise<MapRoute> {
   const resolved = await Promise.all(places.map(resolvePin));
   const pins = resolved.filter((item): item is MapPin => "lat" in item);
   const missingPlaces = resolved.filter((item): item is MissingMapPlace => !("lat" in item));
@@ -150,7 +151,25 @@ export function formatDuration(duration?: string) {
   return remainingMinutes ? `${hours} hr ${remainingMinutes} min` : `${hours} hr`;
 }
 
-async function resolvePin(place: PlaceRecommendation): Promise<MapPin | MissingMapPlace> {
+export function buildGoogleMapsDirectionsUrl(pins: MapPin[]) {
+  if (pins.length < 2) return null;
+  const [origin, ...rest] = pins;
+  const destination = rest.at(-1);
+  if (!destination) return null;
+  const waypoints = rest.slice(0, -1).slice(0, 8);
+  const params = new URLSearchParams({
+    api: "1",
+    origin: `${origin.lat},${origin.lng}`,
+    destination: `${destination.lat},${destination.lng}`,
+    travelmode: "walking",
+  });
+  if (waypoints.length) {
+    params.set("waypoints", waypoints.map((pin) => `${pin.lat},${pin.lng}`).join("|"));
+  }
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+async function resolvePin(place: RoutePlaceRecommendation): Promise<MapPin | MissingMapPlace> {
   if (isCoordinate(place.coordinates?.lat) && isCoordinate(place.coordinates?.lng)) {
     return {
       id: place.id,
@@ -161,6 +180,7 @@ async function resolvePin(place: PlaceRecommendation): Promise<MapPin | MissingM
       lat: place.coordinates!.lat,
       lng: place.coordinates!.lng,
       coordinateSource: "place-record",
+      matchMethod: place.routeMatch,
     };
   }
 
@@ -175,6 +195,7 @@ async function resolvePin(place: PlaceRecommendation): Promise<MapPin | MissingM
       lat: geocoded.lat,
       lng: geocoded.lng,
       coordinateSource: "google-places-geocoding",
+      matchMethod: place.routeMatch,
     };
   }
 
@@ -186,7 +207,7 @@ async function resolvePin(place: PlaceRecommendation): Promise<MapPin | MissingM
   };
 }
 
-async function geocodePlace(place: PlaceRecommendation) {
+async function geocodePlace(place: RoutePlaceRecommendation) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) return null;
 
@@ -249,9 +270,7 @@ async function computeGoogleRoute(pins: MapPin[]) {
     });
 
     if (!response.ok) return null;
-    const data = (await response.json()) as {
-      routes?: Array<{ distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }>;
-    };
+    const data = GoogleRoutesResponseSchema.parse(await response.json());
     const route = data.routes?.[0];
     if (!route) return null;
     return {
@@ -287,12 +306,7 @@ function estimateRoute(pins: MapPin[]) {
 }
 
 function selectRoutePins(pins: MapPin[]) {
-  if (pins.length <= 6) return pins;
-  const radiusMeters = 35000;
-  const clusters = pins.map((pin) => pins.filter((candidate) => haversineMeters(pin, candidate) <= radiusMeters));
-  const bestCluster = clusters.sort((a, b) => b.length - a.length)[0] ?? [];
-  const routeable = bestCluster.length >= 2 ? bestCluster : pins.slice(0, 2);
-  return routeable.slice(0, 6);
+  return pins.slice(0, 6);
 }
 
 function buildRouteSegments(pins: MapPin[]): MapSegment[] {
@@ -305,7 +319,7 @@ function buildRouteSegments(pins: MapPin[]): MapSegment[] {
       destination: destination.label,
       distanceMeters,
       duration: `${durationSeconds}s`,
-      metricSource: "computed",
+      metricSource: "straight-line-estimate",
     };
   });
 }
