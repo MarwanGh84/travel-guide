@@ -103,10 +103,10 @@ export function TripStatusBar() {
   );
 
   return (
-    <div className="group relative flex h-10 w-full items-center overflow-hidden border-b border-border bg-surface select-none">
-       {/* Gradient Masks for edges */}
-       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-surface to-transparent" />
-       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-surface to-transparent" />
+    <div className="group relative flex h-10 w-full items-center overflow-hidden border-b border-border bg-surface select-none z-20">
+       {/* Gradient Masks - strictly decorative and non-blocking */}
+       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-surface via-surface/80 to-transparent" />
+       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-surface via-surface/80 to-transparent" />
 
        {/* Continuous Marquee Wrapper */}
        <div className="flex w-fit">
@@ -115,10 +115,10 @@ export function TripStatusBar() {
             animate={{ x: "0%" }}
             transition={{
               repeat: Infinity,
-              duration: 30,
+              duration: 40, // Slower, more premium pace
               ease: "linear",
             }}
-            className="flex shrink-0"
+            className="flex shrink-0 items-center"
           >
             {tickerItems}
             {tickerItems}
@@ -130,11 +130,11 @@ export function TripStatusBar() {
 
 function StatusItem({ icon: Icon, label, value, bold = false, highlight = false }: { icon: LucideIcon, label: string, value: string, bold?: boolean, highlight?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
-       <Icon size={12} className={cn(highlight ? "text-emerald-500" : "text-muted")} />
+    <div className="flex items-center gap-2.5">
+       <Icon size={12} className={cn(highlight ? "text-emerald-600" : "text-muted-foreground/70")} />
        <div className="flex items-baseline gap-1.5">
-          <span className="text-[9px] font-black uppercase tracking-widest text-muted/60">{label}:</span>
-          <span className={cn("text-[10px] uppercase tracking-tight", bold ? "font-black text-foreground" : "font-bold text-muted")}>
+          <span className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground/50">{label}:</span>
+          <span className={cn("text-[10px] uppercase tracking-tight", bold ? "font-black text-foreground" : "font-bold text-muted-foreground")}>
             {value}
           </span>
        </div>

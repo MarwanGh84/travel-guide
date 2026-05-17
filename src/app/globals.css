@@ -21,31 +21,29 @@
 }
 
 html,
+body,
+body::before,
+body::after {
+  background-image: none !important;
+  background-image: none;
+}
+
+html,
 body {
   height: 100%;
   overflow: hidden;
   font-size: 13px;
-  background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
+  background-color: #f4f1ea !important;
 }
 
-.paper-texture {
-  position: relative;
-}
-
-.paper-texture::before {
-  content: "";
-  position: absolute;
+.mesh-gradient {
+  position: fixed;
   inset: 0;
-  z-index: 50;
-  opacity: 0.35;
+  z-index: -1;
   pointer-events: none;
-  /* Multi-layered texture: fine grain + fibrous irregularities */
-  background-image: 
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 500 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='fibers'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.015' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeContrast exponent='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23fibers)'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
+  background-color: #f4f1ea !important;
 }
 
 * {

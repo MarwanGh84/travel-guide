@@ -280,14 +280,12 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
            {activeDay ? (
              <div className="max-w-3xl mx-auto space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <header>
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Active Objective</span>
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Active Objective</span>
                    <h1 className="mt-4 text-4xl lg:text-6xl font-black tracking-tighter uppercase text-foreground leading-none">{activeDay.theme}</h1>
-                   <div className="mt-8 flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-muted">
-                      <span className="flex items-center gap-2"><Clock size={14} /> {activeDay.date}</span>
-                      <div className="h-4 w-px bg-border" />
-                      <span className="flex items-center gap-2"><ShieldCheck size={14} /> Estimated {formatCurrency(activeDay.estimatedCost)}</span>
-                      <div className="h-4 w-px bg-border" />
-                      <span className="rounded-full border border-border bg-surface px-2 py-1 text-[9px]">AI-generated planning content</span>
+                   <div className="mt-8 flex flex-wrap items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      <span className="flex items-center gap-2 border-b border-border pb-1"><Clock size={14} className="text-black" /> {activeDay.date}</span>
+                      <span className="flex items-center gap-2 border-b border-border pb-1"><ShieldCheck size={14} className="text-black" /> {formatCurrency(activeDay.estimatedCost)} estimate</span>
+                      <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-purple-700 shadow-sm">AI Protocol Planning</span>
                    </div>
                 </header>
 

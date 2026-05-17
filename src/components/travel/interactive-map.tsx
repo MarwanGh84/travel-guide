@@ -55,19 +55,21 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
       {/* Sidebar - Controls & Detail */}
-      <aside className="w-full shrink-0 border-b border-border bg-surface lg:h-full lg:w-[350px] lg:border-b-0 lg:border-r">
+      <aside className="w-full shrink-0 border-b border-border bg-surface lg:h-full lg:w-[350px] lg:border-b-0 lg:border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
         <div className="flex min-h-0 flex-col lg:h-full">
           <section className="p-6 lg:p-8 border-b border-border bg-background">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted">Tactical View</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Tactical View</span>
             <h1 className="mt-2 text-3xl font-black uppercase tracking-tighter text-foreground">Mission Map</h1>
             <div className="mt-6 flex items-center gap-4">
                <SummaryItem icon={Milestone} label={route.metricSource === "google-routes" ? "Google route total" : route.metricSource === "computed" ? "Computed total" : "Distance"} value={formatDistance(route.distanceMeters)} />
                <div className="h-8 w-px bg-border" />
                <SummaryItem icon={Clock3} label={route.metricSource === "google-routes" ? "Google duration" : route.metricSource === "computed" ? "Computed duration" : "Duration"} value={formatDuration(route.duration)} />
             </div>
-            <p className="mt-4 text-[9px] font-bold uppercase tracking-widest text-muted">
-              {route.routeNote}
-            </p>
+            {route.routeNote && (
+              <p className="mt-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground italic">
+                Note: {route.routeNote}
+              </p>
+            )}
           </section>
 
           {/* Sidebar Nav */}
@@ -87,39 +89,44 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
                       onClick={() => { setSelectedPinId(pin.id); setSidebarTab("detail"); }}
                       className={cn(
                         "w-full flex items-center gap-4 rounded-xl border p-4 text-left transition-all group",
-                        selectedPinId === pin.id ? "bg-background border-black shadow-sm ring-1 ring-black/5" : "bg-background/50 border-border/60 hover:border-black"
+                        selectedPinId === pin.id ? "bg-background border-black shadow-md ring-1 ring-black/5" : "bg-background/50 border-border/60 hover:border-black"
                       )}
                     >
-                       <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-black text-[10px] font-black text-white">{String.fromCharCode(65 + index)}</span>
+                       <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-black text-[10px] font-black text-white shadow-sm">{String.fromCharCode(65 + index)}</span>
                        <div className="min-w-0 flex-1">
-                          <h4 className="truncate text-xs font-bold uppercase tracking-tight text-foreground">{pin.label}</h4>
-                          <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted mt-0.5">{pin.category}</p>
+                          <h4 className="truncate text-[11px] font-black uppercase tracking-tight text-foreground">{pin.label}</h4>
+                          <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 mt-0.5">{pin.category}</p>
                        </div>
-                       <ChevronRight size={12} className="text-muted group-hover:translate-x-1 transition-transform" />
+                       <ChevronRight size={12} className="text-muted-foreground group-hover:translate-x-1 transition-transform" />
                     </button>
                   ))}
                </section>
              )}
 
              {sidebarTab === "segments" && (
-               <section className="space-y-4">
+               <section className="space-y-6">
                   {route.segments.length > 0 ? (
                     route.segments.map((segment, index) => (
-                      <div key={index} className="relative pl-6 border-l-2 border-dashed border-border py-2">
-                         <div className="absolute -left-[9px] top-2 size-4 rounded-full bg-black border-4 border-surface" />
-                         <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-muted">SEGMENT 0{index + 1}</span>
-                            <span className="text-[9px] font-black text-emerald-600 uppercase">{formatDistance(segment.distanceMeters)}</span>
+                      <div key={index} className="relative pl-8 before:absolute before:left-[11px] before:top-6 before:h-[calc(100%-16px)] before:w-0.5 before:border-l-2 before:border-dashed before:border-border last:before:hidden py-1">
+                         <div className="absolute left-1 top-2 grid size-4 place-items-center rounded-full bg-black ring-4 ring-surface shadow-sm" />
+                         
+                         <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Segment 0{index + 1}</span>
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-black text-emerald-700 ring-1 ring-emerald-200 uppercase">{formatDistance(segment.distanceMeters)}</span>
                          </div>
-                         <h4 className="mt-2 text-xs font-black uppercase tracking-tight text-foreground">{segment.origin}</h4>
-                         <div className="my-2 py-1 flex items-center gap-2 text-muted">
-                            <ChevronRight size={10} className="rotate-90" />
-                            <span className="text-[8px] font-bold uppercase tracking-widest">{segmentMetricLabel(segment.metricSource)}</span>
+                         
+                         <h4 className="text-[11px] font-black uppercase tracking-tight text-foreground">{segment.origin}</h4>
+                         
+                         <div className="my-4 flex items-center gap-3 py-1 px-3 rounded-md bg-surface-2/50 border border-border/40 w-fit shadow-inner">
+                            <Navigation size={10} className="text-muted-foreground rotate-90" />
+                            <div className="flex flex-col">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Transit</span>
+                              <span className="text-[9px] font-bold uppercase text-foreground leading-none">{segment.metricSource === "straight-line-estimate" ? "Estimated duration" : formatDuration(segment.duration)}</span>
+                              <span className="mt-1 text-[8px] font-bold uppercase tracking-widest text-muted-foreground/60">{segmentMetricLabel(segment.metricSource)}</span>
+                            </div>
                          </div>
-                         <p className="text-[8px] font-bold uppercase tracking-widest text-muted">
-                           {segment.metricSource === "straight-line-estimate" ? "Duration unavailable from provider" : formatDuration(segment.duration)}
-                         </p>
-                         <h4 className="text-xs font-black uppercase tracking-tight text-foreground">{segment.destination}</h4>
+                         
+                         <h4 className="text-[11px] font-black uppercase tracking-tight text-foreground">{segment.destination}</h4>
                       </div>
                     ))
                   ) : (
@@ -136,16 +143,16 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
              )}
 
              {route.missingPlaces.length > 0 && (
-               <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner">
-                  <header className="mb-4 flex items-center gap-2">
-                     <Info size={14} className="text-black" />
-                     <h2 className="text-[10px] font-black uppercase tracking-widest text-foreground">Missing Location Data</h2>
+               <section className="rounded-2xl border border-rose-200 bg-rose-50/30 p-6 shadow-inner">
+                  <header className="mb-4 flex items-center gap-2 text-rose-700">
+                     <Info size={14} />
+                     <h2 className="text-[10px] font-black uppercase tracking-widest">Incomplete Mapping</h2>
                   </header>
                   <div className="space-y-3">
                     {route.missingPlaces.map((place) => (
-                      <div key={place.id} className="rounded-lg border border-border bg-background p-3">
+                      <div key={place.id} className="rounded-lg border border-rose-100 bg-background/80 p-3 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-tight text-foreground">{place.label}</p>
-                        <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-muted">{place.reason}</p>
+                        <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-rose-600/70">{place.reason}</p>
                       </div>
                     ))}
                   </div>
@@ -162,7 +169,7 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
                     href={googleMapsRouteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-11 items-center justify-center gap-2 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 shadow-xl"
                   >
                     <Navigation size={14} /> Open in Google Maps
                   </Link>
@@ -241,7 +248,7 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
               <div className="max-w-xs rounded-2xl border border-border bg-background p-8 shadow-2xl">
                  <MapPin className="mx-auto size-12 text-black opacity-40 mb-6" />
                  <h2 className="text-xl font-black uppercase tracking-tighter text-foreground">Awaiting Points</h2>
-                 <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted leading-relaxed">
+                 <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-relaxed">
                     Pin places in discovery or generate an itinerary to unlock the immersive route preview.
                  </p>
                  <Link href="/discover" className="mt-8 block">
@@ -266,7 +273,7 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-3 mb-6">
-         <span className="rounded-full bg-surface-2 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-muted border border-border">
+         <span className="rounded-full bg-surface-2 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-muted-foreground/70 border border-border">
            {pin.category}
          </span>
          {pin.isHiddenGem && (
@@ -276,25 +283,23 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
          )}
       </div>
       <h3 className="text-3xl font-black uppercase tracking-tighter text-foreground leading-none">{pin.label}</h3>
-      <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted leading-relaxed">{pin.location}</p>
-      <p className="mt-3 text-[9px] font-bold uppercase tracking-widest text-muted">
-        {pin.coordinateSource === "google-places-geocoding" ? "Location estimated by geocoding" : "Mapped from provider coordinates"}
-      </p>
-      <p className="mt-2 text-[9px] font-bold uppercase tracking-widest text-muted">
-        {pin.matchMethod === "matched-by-name"
-          ? "Matched by name"
-          : pin.matchMethod === "linked-record"
-            ? "Linked provider record"
-            : pin.matchMethod === "saved-place"
-              ? "Saved place order"
-              : pin.matchMethod === "unlinked-itinerary-item"
-                ? "Unlinked itinerary item"
-                : "Recommendation order"}
-      </p>
+      <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-relaxed">{pin.location}</p>
+      
+      <div className="mt-8 space-y-2 border-t border-border pt-8">
+        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Telemetric Source</p>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[8px] font-bold uppercase text-muted-foreground border border-border">
+            {pin.coordinateSource === "google-places-geocoding" ? "Geocoded Estimate" : "Provider Mapped"}
+          </span>
+          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[8px] font-bold uppercase text-muted-foreground border border-border">
+            {formatMatchMethod(pin.matchMethod)}
+          </span>
+        </div>
+      </div>
       
       <div className="mt-10 pt-10 border-t border-border/50">
         <button 
-          className="h-12 w-full bg-black text-white shadow-xl hover:bg-zinc-800 font-black text-[10px] uppercase tracking-[0.2em] rounded-lg flex items-center justify-center gap-3"
+          className="h-12 w-full bg-black text-white shadow-xl hover:bg-zinc-800 font-black text-[10px] uppercase tracking-[0.2em] rounded-lg flex items-center justify-center gap-3 transition-all"
           onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${pin.label} ${pin.lat},${pin.lng}`)}`, "_blank")}
         >
           <Navigation size={14} /> Open Navigation
@@ -310,7 +315,7 @@ function SidebarTab({ active, label, onClick }: { active: boolean, label: string
       onClick={onClick}
       className={cn(
         "flex-1 text-[10px] font-black uppercase tracking-widest py-4 border-b-2 transition-all",
-        active ? "text-foreground border-black" : "text-muted border-transparent hover:text-foreground"
+        active ? "text-foreground border-black" : "text-muted-foreground/40 border-transparent hover:text-foreground"
       )}
     >
       {label}
@@ -321,12 +326,22 @@ function SidebarTab({ active, label, onClick }: { active: boolean, label: string
 function SummaryItem({ icon: Icon, label, value }: { icon: LucideIcon, label: string, value: string }) {
   return (
     <div className="min-w-0">
-      <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted">
+      <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
         <Icon size={12} className="text-black" /> {label}
       </p>
-      <p className="mt-1 text-xl font-bold text-foreground truncate uppercase tracking-tight">{value}</p>
+      <p className="mt-1 text-xl font-bold text-foreground truncate uppercase tracking-tight leading-none">{value}</p>
     </div>
   );
+}
+
+function formatMatchMethod(method?: string) {
+  switch (method) {
+    case "matched-by-name": return "Name match";
+    case "linked-record": return "Linked record";
+    case "saved-place": return "Saved order";
+    case "unlinked-itinerary-item": return "Text only";
+    default: return "Discovery";
+  }
 }
 
 function segmentMetricLabel(source: MapRoute["segments"][number]["metricSource"]) {

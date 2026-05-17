@@ -183,11 +183,13 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                 key={cat.id}
                 onClick={() => { setActiveCategoryId(cat.id); setShowDetail(false); }}
                 className={cn(
-                  "flex items-center gap-3 shrink-0 rounded-md px-3 py-2 text-xs font-medium transition-colors lg:w-full",
-                  activeCategoryId === cat.id ? "bg-surface-2 text-foreground" : "text-muted hover:bg-surface-2/50"
+                  "flex items-center gap-3 shrink-0 rounded-md px-3 py-2.5 text-xs font-bold transition-all lg:w-full border-l-2",
+                  activeCategoryId === cat.id 
+                    ? "bg-surface-2 text-foreground border-black shadow-sm" 
+                    : "text-muted-foreground border-transparent hover:bg-surface-2/30 hover:border-border"
                 )}
              >
-                <cat.icon size={14} className={activeCategoryId === cat.id ? "text-foreground" : "text-muted"} />
+                <cat.icon size={14} className={cn(activeCategoryId === cat.id ? "text-foreground" : "text-muted-foreground")} />
                 <span className="lg:inline whitespace-nowrap">{cat.label}</span>
              </button>
            ))}
@@ -337,9 +339,12 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                               </h4>
                               {selectedIds.has(place.id) && <div className="size-1.5 shrink-0 rounded-full bg-black" />}
                            </div>
-                           <div className="mt-1 flex min-w-0 items-center gap-2">
-                             <p className="truncate text-[10px] uppercase tracking-widest text-muted">{place.category}</p>
-                             <span className="shrink-0 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted">
+                           <div className="mt-1.5 flex min-w-0 items-center gap-2">
+                             <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70">{place.category}</p>
+                             <span className={cn(
+                               "shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest",
+                               getProviderStyles(place.source?.provider)
+                             )}>
                                {formatProvider(place.source?.provider)}
                              </span>
                            </div>
@@ -586,13 +591,30 @@ function formatProvider(provider?: string) {
     case "osm":
       return "OSM";
     case "wikivoyage":
-      return "Wikivoyage";
+      return "Wiki";
     case "wikidata":
-      return "Wikidata";
+      return "Data";
     case "openai":
       return "AI";
     default:
-      return provider || "Unknown";
+      return provider || "Source";
+  }
+}
+
+function getProviderStyles(provider?: string) {
+  switch (provider) {
+    case "google":
+    case "google-places":
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    case "osm":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "wikivoyage":
+    case "wikidata":
+      return "border-orange-200 bg-orange-50 text-orange-700";
+    case "openai":
+      return "border-purple-200 bg-purple-50 text-purple-700";
+    default:
+      return "border-border bg-surface text-muted-foreground";
   }
 }
 

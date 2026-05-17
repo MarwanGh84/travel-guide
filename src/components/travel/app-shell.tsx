@@ -19,8 +19,6 @@ import {
   Bookmark,
   Menu,
   X,
-  PlusCircle,
-  TrendingUp,
   CircleDollarSign,
   Bed
 } from "lucide-react";
@@ -53,7 +51,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background font-sans selection:bg-black selection:text-white paper-texture">
+    <div 
+      className="flex h-screen w-screen overflow-hidden font-sans selection:bg-black selection:text-white relative"
+      style={{
+        backgroundColor: '#f4f1ea',
+        backgroundImage: `
+          radial-gradient(at 27% 37%, hsla(45, 30%, 95%, 1) 0px, transparent 50%),
+          radial-gradient(at 97% 21%, hsla(38, 25%, 92%, 1) 0px, transparent 50%),
+          radial-gradient(at 52% 99%, hsla(42, 28%, 94%, 1) 0px, transparent 50%),
+          radial-gradient(at 10% 29%, hsla(48, 20%, 96%, 1) 0px, transparent 50%),
+          radial-gradient(at 97% 96%, hsla(35, 22%, 91%, 1) 0px, transparent 50%),
+          radial-gradient(at 33% 50%, hsla(40, 24%, 93%, 1) 0px, transparent 50%),
+          radial-gradient(at 79% 53%, hsla(44, 26%, 95%, 1) 0px, transparent 50%)
+        `,
+        backgroundAttachment: 'fixed'
+      }}
+    >
       {/* Mobile Backdrop */}
       <AnimatePresence>
         {mobileMenuOpen && (
@@ -69,20 +82,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Navigation Rail / Drawer */}
       <aside className={cn(
-        "group fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col border-r border-border bg-surface transition-all duration-300 lg:static lg:w-[64px] lg:translate-x-0 lg:hover:w-[240px]",
-        mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        "group fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col border-r border-border bg-surface/80 backdrop-blur-lg transition-all duration-300 lg:w-[64px] lg:translate-x-0 lg:hover:w-[240px] lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)]",
+        mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="flex h-12 shrink-0 items-center justify-between px-4">
           <div className="flex items-center">
-            <div className="grid size-8 shrink-0 place-items-center rounded bg-black text-white">
+            <div className="grid size-8 shrink-0 place-items-center rounded bg-black text-white shadow-sm">
               <MapPinned size={18} />
             </div>
-            <span className="ml-3 overflow-hidden truncate font-bold tracking-tight lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-              TRAVEL GUIDE
+            <span className="ml-3 overflow-hidden truncate text-[11px] font-black tracking-[0.1em] lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 uppercase">
+              Travel Workstation
             </span>
           </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden">
-            <X size={20} className="text-muted" />
+          <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden hover:bg-surface-2 p-1 rounded-md transition-colors">
+            <X size={18} className="text-muted-foreground" />
           </button>
         </div>
 
@@ -91,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <NavItem key={item.href} {...item} active={pathname === item.href} onClick={() => setMobileMenuOpen(false)} />
           ))}
           
-          <div className="my-4 h-px bg-border mx-2" />
+          <div className="my-6 h-px bg-border mx-2 opacity-50" />
           
           {secondaryNav.map((item) => (
             <NavItem key={item.href} {...item} active={pathname === item.href} onClick={() => setMobileMenuOpen(false)} />
@@ -105,10 +118,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Container */}
-      <main className="flex flex-1 flex-col overflow-hidden relative">
+      <main className="flex flex-1 flex-col overflow-hidden relative lg:pl-[64px]">
         {/* Command Bar / Global Header */}
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4 z-30">
-          <div className="flex items-center gap-3 text-muted">
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md px-4 z-30">
+          <div className="flex items-center gap-3 text-muted-foreground">
             <button 
               onClick={() => setMobileMenuOpen(true)}
               className="grid size-8 place-items-center rounded hover:bg-surface-2 transition-colors lg:hidden"
@@ -116,22 +129,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Menu size={20} />
             </button>
             <div className="hidden items-center gap-2 lg:flex">
-              <span className="text-xs font-medium uppercase tracking-widest opacity-50">Workspace</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40">System</span>
               <span className="text-border">/</span>
             </div>
-            <span className="text-xs font-bold text-foreground truncate max-w-[200px] lg:max-w-none">
+            <span className="text-[11px] font-bold text-foreground truncate max-w-[200px] lg:max-w-none uppercase tracking-wide">
               {pathname === "/" ? "Dashboard" : pathname.split("/").filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" / ")}
             </span>
           </div>
           
           <div className="flex items-center gap-3">
             <button className="grid size-8 place-items-center rounded hover:bg-surface-2 transition-colors">
-              <Bell size={16} className="text-muted" />
+              <Bell size={16} className="text-muted-foreground" />
             </button>
             <div className="h-6 w-px bg-border" />
             <div className="flex items-center gap-2 pl-1">
               <div className="size-6 rounded-full bg-surface-2 border border-border" />
-              <span className="text-xs font-medium text-muted hidden sm:inline">User</span>
+              <span className="text-[10px] font-bold text-muted-foreground hidden sm:inline uppercase tracking-wider">User</span>
             </div>
           </div>
         </header>
@@ -166,12 +179,12 @@ function NavItem({ href, label, icon: Icon, active, onClick }: { href: string; l
         active && "bg-surface-2 text-foreground shadow-sm ring-1 ring-border"
       )}
     >
-      <div className={cn("grid size-6 shrink-0 place-items-center text-muted group-hover/item:text-foreground", active && "text-foreground")}>
+      <div className={cn("grid size-6 shrink-0 place-items-center text-muted-foreground group-hover/item:text-foreground", active && "text-foreground")}>
         <Icon size={16} strokeWidth={active ? 2.5 : 2} />
       </div>
       <span className={cn(
-        "ml-3 overflow-hidden truncate text-sm font-medium text-muted transition-all lg:opacity-0 lg:group-hover:opacity-100 group-hover/item:text-foreground",
-        active && "text-foreground lg:opacity-100"
+        "ml-3 overflow-hidden truncate text-sm font-medium text-muted-foreground transition-all lg:opacity-0 lg:group-hover:opacity-100 group-hover/item:text-foreground",
+        active && "text-foreground lg:opacity-100 font-bold"
       )}>
         {label}
       </span>
