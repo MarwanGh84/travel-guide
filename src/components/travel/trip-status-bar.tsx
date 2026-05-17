@@ -42,7 +42,7 @@ export function TripStatusBar() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const response = await fetch("/api/ai/summary");
+      const response = await fetch("/api/ai/summary", { cache: "no-store" });
       const result = await response.json();
       setData(result.ok && result.trip ? result.trip : null);
     } catch (error) {

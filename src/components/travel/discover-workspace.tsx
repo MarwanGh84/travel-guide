@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { 
   RefreshCw, 
   Sparkles, 
@@ -44,6 +45,7 @@ type DiscoverWorkspaceProps = {
 };
 
 export function DiscoverWorkspace({ trip, places = [], destinations = [], selectedIds = new Set(), intelligence }: DiscoverWorkspaceProps) {
+  const router = useRouter();
   const [activeCategoryId, setActiveCategoryId] = useState(intelligence ? "intel" : "all");
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
@@ -54,16 +56,18 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
   );
   const [query, setQuery] = useState("");
   const [showDetail, setShowDetail] = useState(false);
+  const [status, setStatus] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const categories = [
     { id: "intel", label: "Intelligence", icon: Info },
-    { id: "destinations", label: "Proposals", icon: Globe },
+    { id: "destinations", label: "Destination Ideas", icon: Globe },
     { id: "all", label: "All Places", icon: Compass },
-    { id: "saved", label: "Saved", icon: Bookmark },
+    { id: "saved", label: "Saved Places", icon: Bookmark },
     { id: "hidden", label: "Hidden Gems", icon: Star },
     { id: "food", label: "Dining", icon: Utensils },
     { id: "culture", label: "Culture", icon: Church },
+    { id: "nature", label: "Nature", icon: Navigation },
   ];
 
   const filteredPlaces = places.filter((p) => {
@@ -71,9 +75,10 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
     if (query && !haystack.includes(query.toLowerCase())) return false;
     if (activeCategoryId === "all") return true;
     if (activeCategoryId === "saved") return selectedIds.has(p.id);
-    if (activeCategoryId === "hidden") return p.hiddenGemScore >= 50;
+    if (activeCategoryId === "hidden") return p.isHiddenGem;
     if (activeCategoryId === "food") return /restaurant|cafe|bar|food/i.test(p.category);
-    if (activeCategoryId === "culture") return /museum|temple|history|art/i.test(`${p.category} ${p.name}`);
+    if (activeCategoryId === "culture") return /museum|temple|history|art|theatre|gallery|church/i.test(`${p.category} ${p.name}`);
+    if (activeCategoryId === "nature") return /park|garden|nature|viewpoint|beach|reserve/i.test(`${p.category} ${p.name}`);
     return true;
   });
 
@@ -87,6 +92,11 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
   const activePlace = places.find((p) => p.id === selectedPlaceId);
   const activeDestination = destinations.find((d) => d.id === selectedDestinationId);
   const isSelected = activePlace ? selectedIds.has(activePlace.id) : false;
+  const isCommittedDestination = Boolean(
+    activeDestination &&
+      activeDestination.name === trip?.destination &&
+      (!trip?.destinationCountry || activeDestination.country === trip.destinationCountry),
+  );
 
   const handleSelectPlace = (id: string) => {
     setSelectedPlaceId(id);
@@ -100,22 +110,65 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
 
   const handleRefreshPlaces = () => {
     startTransition(async () => {
-      await refreshPlacesFromProvider();
+      setStatus({ tone: "info", message: "Refreshing live place recommendations..." });
+      try {
+        await refreshPlacesFromProvider();
+        router.refresh();
+        setStatus({ tone: "success", message: "Live place recommendations refreshed." });
+      } catch {
+        setStatus({ tone: "error", message: "Could not refresh places. Try again." });
+      }
     });
   };
 
   const handleRefreshAI = () => {
     startTransition(async () => {
-      await refreshDestinationsFromAi();
+      setStatus({ tone: "info", message: "Generating destination ideas..." });
+      try {
+        await refreshDestinationsFromAi();
+        router.refresh();
+        setActiveCategoryId("destinations");
+        setStatus({ tone: "success", message: "Destination ideas refreshed." });
+      } catch {
+        setStatus({ tone: "error", message: "Could not generate destination ideas. Try again." });
+      }
     });
   };
 
   const handleCommitDest = (formData: FormData) => {
     startTransition(async () => {
-      await planDestination(formData);
-      setActiveCategoryId("intel");
+      setStatus({ tone: "info", message: "Committing destination and refreshing places..." });
+      try {
+        await planDestination(formData);
+        router.refresh();
+        window.dispatchEvent(new Event("trip-status-refresh"));
+        setActiveCategoryId("intel");
+        setStatus({ tone: "success", message: "Destination committed." });
+      } catch {
+        setStatus({ tone: "error", message: "Could not commit destination. Try again." });
+      }
     });
   };
+
+  const handlePlaceAction = (formData: FormData) => {
+    startTransition(async () => {
+      try {
+        if (isSelected) {
+          await removeSelectedPlace(formData);
+          setStatus({ tone: "success", message: "Place removed from saved places." });
+        } else {
+          await addPlaceToItinerary(formData);
+          setStatus({ tone: "success", message: "Place saved for itinerary planning." });
+        }
+        router.refresh();
+        window.dispatchEvent(new Event("trip-status-refresh"));
+      } catch {
+        setStatus({ tone: "error", message: "Could not update saved places. Try again." });
+      }
+    });
+  };
+
+  const hasNoDataYet = Boolean(trip) && !intelligence && places.length === 0 && destinations.length === 0;
 
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
@@ -145,14 +198,14 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
              disabled={isPending}
              className="flex w-full items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground transition-colors disabled:opacity-50"
            >
-              {isPending ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Refresh Intelligence
+              {isPending ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Refresh Places
            </button>
            <button 
              onClick={handleRefreshAI}
              disabled={isPending}
              className="flex w-full items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground transition-colors disabled:opacity-50"
            >
-              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Refresh Proposals
+              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Get AI Ideas
            </button>
         </div>
       </aside>
@@ -233,6 +286,25 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
               </div>
               
               <div className="flex-1 overflow-y-auto divide-y divide-border/50 scrollbar-hide">
+                 {hasNoDataYet && (
+                   <div className="p-8 text-center">
+                     <Loader2 size={32} className="mx-auto mb-4 animate-spin text-muted" strokeWidth={1} />
+                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                       Preparing destination ideas and live places
+                     </p>
+                     <p className="mt-3 text-xs leading-5 text-muted">
+                       Discovery is still warming up for this trip. Retry if provider data takes longer than expected.
+                     </p>
+                     <button
+                       onClick={handleRefreshPlaces}
+                       disabled={isPending}
+                       className="mt-5 inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-4 text-[10px] font-black uppercase tracking-widest text-foreground transition-colors hover:bg-surface-2 disabled:opacity-50"
+                     >
+                       {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                       Retry places
+                     </button>
+                   </div>
+                 )}
                  {isDestMode ? (
                    filteredDestinations.map((dest) => (
                      <button
@@ -265,12 +337,17 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                               </h4>
                               {selectedIds.has(place.id) && <div className="size-1.5 shrink-0 rounded-full bg-black" />}
                            </div>
-                           <p className="mt-1 truncate text-[10px] uppercase tracking-widest text-muted">{place.category}</p>
+                           <div className="mt-1 flex min-w-0 items-center gap-2">
+                             <p className="truncate text-[10px] uppercase tracking-widest text-muted">{place.category}</p>
+                             <span className="shrink-0 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted">
+                               {formatProvider(place.source?.provider)}
+                             </span>
+                           </div>
                         </div>
                      </button>
                    ))
                  )}
-                 {((isDestMode && filteredDestinations.length === 0) || (!isDestMode && filteredPlaces.length === 0)) && (
+                 {!hasNoDataYet && ((isDestMode && filteredDestinations.length === 0) || (!isDestMode && filteredPlaces.length === 0)) && (
                    <div className="p-8 text-center">
                       <Compass size={32} className="mx-auto mb-4 text-muted" strokeWidth={1} />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
@@ -303,6 +380,19 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
            <ChevronLeft size={14} /> Back to tactical list
         </button>
 
+        {status && (
+          <div
+            className={cn(
+              "mb-6 rounded-lg border px-4 py-3 text-[10px] font-black uppercase tracking-widest",
+              status.tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+              status.tone === "error" && "border-rose-200 bg-rose-50 text-rose-700",
+              status.tone === "info" && "border-border bg-surface text-muted",
+            )}
+          >
+            {status.message}
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {isDestMode ? (
             activeDestination ? (
@@ -320,6 +410,21 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-muted border border-border">
                             Destination Proposal
                          </span>
+                         <div className="mt-3 flex flex-wrap gap-2">
+                           <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted">
+                             {activeDestination.source.classification === "ai" ? "AI estimate" : activeDestination.source.provider}
+                           </span>
+                           {activeDestination.source.classification === "ai" && (
+                             <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted">
+                               Not live provider data
+                             </span>
+                           )}
+                           {isCommittedDestination && (
+                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-700">
+                               Committed
+                             </span>
+                           )}
+                         </div>
                          <h1 className="mt-6 text-3xl sm:text-5xl font-black uppercase tracking-tighter text-foreground leading-none">{activeDestination.name}</h1>
                          <p className="mt-4 text-sm font-bold text-muted uppercase tracking-[0.2em]">{activeDestination.country}</p>
                       </div>
@@ -340,6 +445,17 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6">Alignment Logic</h3>
                       <p className="text-xl font-medium leading-relaxed text-foreground tracking-tight">{activeDestination.whyItMatches}</p>
                    </section>
+
+                   {activeDestination.source.classification === "ai" && (
+                     <section className="rounded-xl border border-border bg-surface p-8 shadow-inner">
+                       <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Planning Assumptions</h3>
+                       <div className="space-y-3 text-sm font-medium leading-relaxed text-muted-2">
+                         <p>Weather assumption: {activeDestination.weatherSummary}</p>
+                         <p>Flight assumption: {activeDestination.flightEstimate}</p>
+                         <p>Hotel assumption: {activeDestination.hotelEstimate}</p>
+                       </div>
+                     </section>
+                   )}
                    
                    <div className="grid gap-12 sm:grid-cols-2">
                       <section className="rounded-xl border border-border bg-surface p-8 shadow-inner">
@@ -380,7 +496,7 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted border border-border">
                             {activePlace.category}
                          </span>
-                         {activePlace.hiddenGemScore >= 50 && (
+                         {activePlace.isHiddenGem && (
                            <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase">
                              <Star size={10} fill="currentColor" /> Hidden Gem
                            </span>
@@ -392,7 +508,7 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                       </p>
                    </div>
                    
-                   <form action={isSelected ? removeSelectedPlace : addPlaceToItinerary}>
+                   <form action={handlePlaceAction}>
                       <input type="hidden" name="placeId" value={activePlace.id} />
                       <button
                         className={cn(
@@ -422,7 +538,14 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                          <p className="text-sm font-bold leading-relaxed text-muted-2 uppercase tracking-wide">
                             {activePlace.whyRecommended || "Standard recommendation based on location popularity and category relevance."}
                          </p>
-                         <p className="mt-4 text-[9px] font-black uppercase tracking-widest text-muted opacity-60">SOURCE: {activePlace.source?.provider || "Intelligence Pipeline"}</p>
+                         <div className="mt-4 flex flex-wrap gap-2">
+                           <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted">
+                             Source: {formatProvider(activePlace.source?.provider)}
+                           </span>
+                           <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted">
+                             {activePlace.source?.classification === "provider" ? "Provider data" : activePlace.source?.classification ?? "Unknown"}
+                           </span>
+                         </div>
                       </section>
                    </div>
 
@@ -453,6 +576,24 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
       </main>
     </div>
   );
+}
+
+function formatProvider(provider?: string) {
+  switch (provider) {
+    case "google":
+    case "google-places":
+      return "Google";
+    case "osm":
+      return "OSM";
+    case "wikivoyage":
+      return "Wikivoyage";
+    case "wikidata":
+      return "Wikidata";
+    case "openai":
+      return "AI";
+    default:
+      return provider || "Unknown";
+  }
 }
 
 function IntelSection({ icon: Icon, title, content }: { icon: LucideIcon, title: string, content: string | null }) {

@@ -16,9 +16,11 @@ import {
   toTripDraft,
 } from "@/lib/db/travel";
 import { TripDraftSchema } from "@/lib/validation/schemas";
-import type { DestinationRecommendation } from "@/lib/types/travel";
+import type { DestinationRecommendation, PlaceRecommendation } from "@/lib/types/travel";
+import type { NormalizedPlace } from "@/lib/types/sources";
 
 import { aggregateIntelligence } from "@/lib/api/placeSources/sourceAggregator";
+import { getPlacesForTrip } from "@/lib/api/placesService";
 
 const revalidateAll = () => {
   ["/", "/trips", "/discover", "/itinerary", "/map", "/stays", "/currency", "/budget", "/bookings", "/imports", "/documents", "/today", "/memories", "/profile"].forEach((path) => revalidatePath(path));
@@ -304,7 +306,12 @@ export async function refreshPlacesFromProvider() {
   if (!trip) return;
   
   const tripDraft = toTripDraft(trip);
-  const { places, intelligence } = await aggregateIntelligence(tripDraft);
+  const [googlePlaces, aggregated] = await Promise.all([
+    getPlacesForTrip(tripDraft),
+    aggregateIntelligence(tripDraft),
+  ]);
+  const places = mergeDiscoveredPlaces(googlePlaces, aggregated.places);
+  const { intelligence } = aggregated;
   
   const savedPlaces = await prisma.savedPlace.findMany({ where: { tripId: trip.id } });
   const existingPlaces = await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } });
@@ -338,20 +345,7 @@ export async function refreshPlacesFromProvider() {
 
     for (const place of places) {
       const existing = existingByName.get(normalizePlaceKey(place.name));
-      const data = {
-        name: place.name,
-        category: place.category,
-        description: place.description || "",
-        rating: place.rating,
-        costLevel: "$$",
-        location: place.address || "Local area",
-        latitude: place.latitude,
-        longitude: place.longitude,
-        whyRecommended: `Discovered via ${place.source} intelligence pipeline.`,
-        hiddenGemScore: place.hiddenGemScore || 0,
-        isHiddenGem: (place.hiddenGemScore || 0) >= 75,
-        source: place.source,
-      };
+      const data = toPersistedPlaceData(place);
 
       if (existing) {
         await tx.placeRecommendation.update({
@@ -583,4 +577,69 @@ export async function removeSelectedPlace(formData: FormData) {
 
 function normalizePlaceKey(value: string) {
   return value.trim().toLowerCase();
+}
+
+function mergeDiscoveredPlaces(
+  googlePlaces: Awaited<ReturnType<typeof getPlacesForTrip>>,
+  aggregatedPlaces: Awaited<ReturnType<typeof aggregateIntelligence>>["places"],
+) {
+  const merged = new Map<string, (typeof googlePlaces)[number] | (typeof aggregatedPlaces)[number]>();
+
+  googlePlaces.forEach((place) => {
+    merged.set(normalizePlaceKey(place.name), place);
+  });
+
+  aggregatedPlaces.forEach((place) => {
+    const key = normalizePlaceKey(place.name);
+    if (!merged.has(key)) merged.set(key, place);
+  });
+
+  return [...merged.values()];
+}
+
+function toPersistedPlaceData(place: PlaceRecommendation | NormalizedPlace): {
+  name: string;
+  category: string;
+  description: string;
+  rating?: number;
+  costLevel: string;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  whyRecommended: string;
+  hiddenGemScore: number;
+  isHiddenGem: boolean;
+  source: string;
+} {
+  if (!("sourceId" in place)) {
+    return {
+      name: place.name,
+      category: place.category,
+      description: place.description || "",
+      rating: place.rating,
+      costLevel: place.costLevel,
+      location: place.location,
+      latitude: place.coordinates?.lat,
+      longitude: place.coordinates?.lng,
+      whyRecommended: place.whyRecommended,
+      hiddenGemScore: place.hiddenGemScore,
+      isHiddenGem: place.isHiddenGem,
+      source: place.source.provider,
+    };
+  }
+
+  return {
+    name: place.name,
+    category: place.category,
+    description: place.description || "",
+    rating: place.rating,
+    costLevel: "$$",
+    location: place.address ?? "Local area",
+    latitude: place.latitude,
+    longitude: place.longitude,
+    whyRecommended: `Discovered via ${place.source} intelligence pipeline.`,
+    hiddenGemScore: place.hiddenGemScore || 0,
+    isHiddenGem: (place.hiddenGemScore || 0) >= 75,
+    source: place.source,
+  };
 }
