@@ -107,7 +107,7 @@ export function ItineraryDayCard({
     const result = await response.json();
     setBusyAction(null);
 
-    if (!response.ok || !result.data) {
+    if (!response.ok || !result.ok || !result.data) {
       setError(result.raw ?? "AI could not adjust this day.");
       setStatus("");
       return;

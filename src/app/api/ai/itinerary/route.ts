@@ -60,6 +60,15 @@ export async function POST(request: Request) {
           },
         });
       }
+      if (trip.status === "itinerary_approved") {
+        await tx.trip.update({
+          where: { id: trip.id },
+          data: {
+            status: "planning",
+            itineraryApprovedAt: null,
+          },
+        });
+      }
     });
 
     const savedDays = await prisma.itineraryDay.findMany({

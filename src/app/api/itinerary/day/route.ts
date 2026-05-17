@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { getPrimaryTrip } from "@/lib/db/travel";
+import type { Prisma } from "@prisma/client";
 
 export async function POST() {
   const trip = await getPrimaryTrip();
@@ -13,21 +14,27 @@ export async function POST() {
   const date = latestDay ? addDays(latestDay.date, 1) : trip.startDate;
   const dayNumber = trip.itineraryDays.length + 1;
 
-  const day = await prisma.itineraryDay.create({
-    data: {
-      tripId: trip.id,
-      date,
-      theme: `Day ${dayNumber} plan`,
-      morningPlan: "Add a morning idea or use AI to regenerate this day.",
-      afternoonPlan: "Add an afternoon idea from Discover or your saved places.",
-      eveningPlan: "Add dinner, sunset, or a low-effort evening plan.",
-      restaurantIdeas: "",
-      hiddenGem: "",
-      estimatedCost: 0,
-      transportNotes: "Add route notes after choosing places.",
-      backupOption: "Keep one simple backup option for weather or low energy.",
-      notes: "",
-    },
+  const day = await prisma.$transaction(async (tx) => {
+    const createdDay = await tx.itineraryDay.create({
+      data: {
+        tripId: trip.id,
+        date,
+        theme: `Day ${dayNumber} plan`,
+        morningPlan: "Add a morning idea or use AI to regenerate this day.",
+        afternoonPlan: "Add an afternoon idea from Discover or your saved places.",
+        eveningPlan: "Add dinner, sunset, or a low-effort evening plan.",
+        restaurantIdeas: "",
+        hiddenGem: "",
+        estimatedCost: 0,
+        transportNotes: "Add route notes after choosing places.",
+        backupOption: "Keep one simple backup option for weather or low energy.",
+        notes: "",
+      },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+
+    await invalidateApprovalIfNeeded(tx, trip.id, trip.status);
+    return createdDay;
   });
 
   revalidateItinerary();
@@ -44,20 +51,34 @@ export async function PATCH(request: Request) {
   }
   const data = validation.data;
 
-  const day = await prisma.itineraryDay.update({
+  const existingDay = await prisma.itineraryDay.findUnique({
     where: { id: data.id },
-    data: {
-      theme: data.theme,
-      morningPlan: data.morningPlan,
-      afternoonPlan: data.afternoonPlan,
-      eveningPlan: data.eveningPlan,
-      restaurantIdeas: Array.isArray(data.restaurantIdeas) ? data.restaurantIdeas.join(", ") : data.restaurantIdeas,
-      hiddenGem: data.hiddenGem,
-      estimatedCost: data.estimatedCost,
-      transportNotes: data.transportNotes,
-      backupOption: data.backupOption,
-      notes: data.notes,
-    },
+    include: { trip: true },
+  });
+  if (!existingDay) {
+    return NextResponse.json({ ok: false, message: "Itinerary day not found." }, { status: 404 });
+  }
+
+  const day = await prisma.$transaction(async (tx) => {
+    const updatedDay = await tx.itineraryDay.update({
+      where: { id: data.id },
+      data: {
+        theme: data.theme,
+        morningPlan: data.morningPlan,
+        afternoonPlan: data.afternoonPlan,
+        eveningPlan: data.eveningPlan,
+        restaurantIdeas: Array.isArray(data.restaurantIdeas) ? data.restaurantIdeas.join(", ") : data.restaurantIdeas,
+        hiddenGem: data.hiddenGem,
+        estimatedCost: data.estimatedCost,
+        transportNotes: data.transportNotes,
+        backupOption: data.backupOption,
+        notes: data.notes,
+      },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+
+    await invalidateApprovalIfNeeded(tx, existingDay.tripId, existingDay.trip.status);
+    return updatedDay;
   });
 
   revalidateItinerary();
@@ -69,7 +90,18 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ ok: false, message: "Missing itinerary day id." }, { status: 400 });
-  await prisma.itineraryDay.delete({ where: { id } });
+  const existingDay = await prisma.itineraryDay.findUnique({
+    where: { id },
+    include: { trip: true },
+  });
+  if (!existingDay) {
+    return NextResponse.json({ ok: false, message: "Itinerary day not found." }, { status: 404 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.itineraryDay.delete({ where: { id } });
+    await invalidateApprovalIfNeeded(tx, existingDay.tripId, existingDay.trip.status);
+  });
   revalidateItinerary();
   return NextResponse.json({ ok: true });
 }
@@ -91,6 +123,7 @@ function serializeDay(day: {
   transportNotes?: string | null;
   backupOption?: string | null;
   notes?: string | null;
+  items?: { title: string }[];
 }) {
   return {
     id: day.id,
@@ -105,8 +138,23 @@ function serializeDay(day: {
     transportNotes: day.transportNotes ?? "",
     backupOption: day.backupOption ?? "",
     notes: day.notes ?? "",
-    placesIncluded: [],
+    placesIncluded: day.items?.map((item) => item.title) ?? [],
   };
+}
+
+async function invalidateApprovalIfNeeded(
+  tx: Prisma.TransactionClient,
+  tripId: string,
+  status: string,
+) {
+  if (status !== "itinerary_approved") return;
+  await tx.trip.update({
+    where: { id: tripId },
+    data: {
+      status: "planning",
+      itineraryApprovedAt: null,
+    },
+  });
 }
 
 function addDays(date: Date, days: number) {

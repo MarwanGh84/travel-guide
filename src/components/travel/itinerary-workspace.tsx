@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEventHandler, type FC } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
 import {
   Sparkles,
   Plus,
@@ -27,7 +27,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { formatCurrency, normalizeName } from "@/lib/utils";
 import type { ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
-import { Input, Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/input";
 import { clearItinerary, approveItinerary, reopenItinerary } from "@/app/actions";
 import Link from "next/link";
 
@@ -48,6 +48,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
   const [editMode, setEditMode] = useState(false);
   const [busyAction, setBusyAction] = useState("");
   const [selectedPlace, setSelectedPlace] = useState<PlaceRecommendation | null>(null);
+  const [selectedPointName, setSelectedPointName] = useState("");
   const autoGenerateStarted = useRef(false);
 
   const activeIndex = Math.max(0, days.findIndex((day) => day.id === activeDayId));
@@ -82,6 +83,23 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
     void generate();
   }, [generate, shouldAutoGenerate]);
 
+  if (!trip) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background p-8 text-center">
+        <div className="max-w-sm space-y-4">
+          <CalendarDays size={40} className="mx-auto text-muted" strokeWidth={1.5} />
+          <h1 className="text-lg font-black uppercase tracking-tight text-foreground">No active trip</h1>
+          <p className="text-sm leading-relaxed text-muted-2">
+            Create or select a trip before building an itinerary.
+          </p>
+          <Link href="/trips" className="inline-flex h-10 items-center justify-center rounded-lg bg-black px-4 text-[10px] font-black uppercase tracking-widest text-white">
+            Open trips
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   async function addDay() {
     setBusyAction("add");
     const response = await fetch("/api/itinerary/day", { method: "POST" });
@@ -114,13 +132,16 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
       body: JSON.stringify(updated),
     });
     setBusyAction("");
+    const result = await response.json();
     if (response.ok) {
-      const result = await response.json();
       setDays((current) => current.map((d) => (d.id === result.data.id ? result.data : d)));
       setEditMode(false);
       setStatus("Day updated.");
       setTimeout(() => setStatus(""), 2000);
+      return;
     }
+    setStatus(result.message || "Could not save this itinerary day.");
+    setTimeout(() => setStatus(""), 5000);
   }
 
   const exportJson = () => {
@@ -139,15 +160,21 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
     setShowDetail(true);
     setEditMode(false);
     setSelectedPlace(null);
+    setSelectedPointName("");
   };
 
   const handleSelectPoint = (name: string) => {
     const matched = [...selectedPlaces, ...allPlaces].find(p => normalizeName(p.name) === normalizeName(name));
+    setSelectedPointName(name);
     if (matched) {
       setSelectedPlace(matched);
       setShowDetail(true);
       setEditMode(false);
+      return;
     }
+    setSelectedPlace(null);
+    setShowDetail(true);
+    setEditMode(false);
   };
 
   return (
@@ -233,9 +260,14 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
             />
           ))}
           {days.length === 0 && !generating && (
-            <div className="p-12 text-center opacity-40">
+            <div className="space-y-3 p-12 text-center">
                <CalendarDays size={32} className="mx-auto mb-4" strokeWidth={1} />
-               <p className="text-[10px] font-bold uppercase tracking-widest">No timeline segments</p>
+               <p className="text-[10px] font-bold uppercase tracking-widest text-foreground">No itinerary yet</p>
+               <p className="text-xs leading-relaxed text-muted">
+                 {selectedPlaces.length > 0
+                   ? "Generate from your saved places to create a full trip plan."
+                   : "No saved places selected. AI can still draft a plan from the active trip profile and available recommendations."}
+               </p>
             </div>
           )}
         </div>
@@ -254,6 +286,8 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                       <span className="flex items-center gap-2"><Clock size={14} /> {activeDay.date}</span>
                       <div className="h-4 w-px bg-border" />
                       <span className="flex items-center gap-2"><ShieldCheck size={14} /> Estimated {formatCurrency(activeDay.estimatedCost)}</span>
+                      <div className="h-4 w-px bg-border" />
+                      <span className="rounded-full border border-border bg-surface px-2 py-1 text-[9px]">AI-generated planning content</span>
                    </div>
                 </header>
 
@@ -287,8 +321,11 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                 </div>
              </div>
            ) : (
-             <div className="flex h-full items-center justify-center p-12 text-center opacity-30">
-                <CalendarDays size={64} strokeWidth={1} />
+             <div className="flex h-full items-center justify-center p-12 text-center">
+                <div className="space-y-4">
+                  <CalendarDays size={64} className="mx-auto text-muted" strokeWidth={1} />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted">Generate or add a day to begin</p>
+                </div>
              </div>
            )}
         </section>
@@ -319,6 +356,9 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                           </div>
                           <h2 className="text-3xl font-black uppercase tracking-tighter text-foreground leading-none">{selectedPlace.name}</h2>
                           <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted leading-relaxed">{selectedPlace.location}</p>
+                          <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-muted">
+                            Source: {selectedPlace.source.provider}
+                          </p>
                        </header>
 
                        <section>
@@ -330,9 +370,14 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                           {selectedPlace.coordinates && (
                             <Link href="/map" className="block w-full">
                                <button className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 transition-all">
-                                  <MapPin size={14} /> View on Tactical Map
+                                  <MapPin size={14} /> View on Map
                                </button>
                             </Link>
+                          )}
+                          {!selectedPlace.coordinates && (
+                            <div className="rounded-lg border border-border bg-background px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted">
+                              Map view unavailable because this place has no coordinates.
+                            </div>
                           )}
                           <button 
                             onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPlace.name)}`, "_blank")}
@@ -340,7 +385,22 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                           >
                              <Navigation size={14} /> Open Navigation
                           </button>
-                       </div>
+                        </div>
+                    </div>
+                  ) : selectedPointName ? (
+                    <div className="p-8 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <header>
+                        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted">
+                          Unlinked itinerary point
+                        </span>
+                        <h2 className="mt-4 text-2xl font-black uppercase tracking-tight text-foreground">{selectedPointName}</h2>
+                      </header>
+                      <p className="text-sm leading-relaxed text-muted-2">
+                        This point is present in the AI-authored itinerary text, but it is not linked to a saved or provider-backed place record yet.
+                      </p>
+                      <div className="rounded-lg border border-border bg-background px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted">
+                        Map view unavailable until a matching place is saved from Discover.
+                      </div>
                     </div>
                   ) : (
                     activeDay && (
@@ -405,7 +465,7 @@ function DayEditor({ day, onSave, busy, editMode, setEditMode }: { day: Itinerar
     const result = await response.json();
     setAdjustmentBusy("");
 
-    if (!response.ok || !result.data) {
+    if (!response.ok || !result.ok || !result.data) {
       setAdjustmentStatus("");
       setAdjustmentError(result.raw ?? result.message ?? "Could not adjust this day.");
       return;
