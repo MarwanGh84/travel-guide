@@ -31,6 +31,7 @@ type Booking = {
   endDate?: string;
   link?: string | null;
   notes?: string | null;
+  importGroupId?: string | null;
 };
 
 type BookingsWorkspaceProps = {
@@ -166,7 +167,9 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                      <td className="px-6 py-4">
                         <div className="flex flex-col">
                            <span className="text-xs font-bold text-foreground">{b.title}</span>
-                           <span className="text-[10px] uppercase font-bold tracking-widest text-muted mt-0.5">{b.type}</span>
+                           <span className="text-[10px] uppercase font-bold tracking-widest text-muted mt-0.5">
+                             {b.type}{b.importGroupId ? " · Gmail imported" : ""}
+                           </span>
                         </div>
                      </td>
                      <td className="px-6 py-4">

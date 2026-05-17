@@ -6,26 +6,56 @@ import {
   ArrowUpRight, 
   PlusCircle,
   Download,
-  ShieldCheck
+  ShieldCheck,
+  Pencil,
+  Trash2,
+  X
 } from "lucide-react";
-import { addExpense } from "@/app/actions";
+import { addExpense, deleteExpense, updateExpense } from "@/app/actions";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import type { TripDraft } from "@/lib/types/travel";
+import { useRouter } from "next/navigation";
 
 type BudgetWorkspaceProps = {
   trip: TripDraft | null;
   categories: { name: string; estimated: number; actual: number }[];
-  eurRate: { rate: number; source: { provider: string } };
+  expenses: { id: string; category: string; amount: number; currency: string; note?: string | null; spentAt: string }[];
+  baseCurrency: string;
+  destinationCurrency: string | null;
+  exchangeRate: { rate: number; source: { provider: string; isMock: boolean; note: string } } | null;
 };
 
-export function BudgetWorkspace({ trip, categories, eurRate }: BudgetWorkspaceProps) {
+export function BudgetWorkspace({ trip, categories, expenses, baseCurrency, destinationCurrency, exchangeRate }: BudgetWorkspaceProps) {
+  const router = useRouter();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const actualTotal = categories.reduce((sum, c) => sum + c.actual, 0);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const actualTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const remaining = (trip?.budget ?? 0) - actualTotal;
+  const expenseTotalsByCategory = expenses.reduce<Record<string, number>>((totals, expense) => {
+    totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
+    return totals;
+  }, {});
+  const displayedCategories = Array.from(
+    new Map([
+      ...categories.map((category) => [category.name, { ...category, actual: expenseTotalsByCategory[category.name] ?? category.actual }] as const),
+      ...Object.entries(expenseTotalsByCategory).map(([name, actual]) => [name, { name, estimated: 0, actual }] as const),
+    ]).values(),
+  );
+  const categoryOptions = Array.from(new Set([
+    "Flights",
+    "Hotel",
+    "Food",
+    "Activities",
+    "Transport",
+    "Shopping",
+    "Emergency buffer",
+    ...categories.map((category) => category.name),
+    ...expenses.map((expense) => expense.category),
+  ]));
 
   const exportCsv = () => {
-    const data = "Category,Estimated,Actual,Difference\n" + categories.map(c => `${c.name},${c.estimated},${c.actual},${c.estimated - c.actual}`).join("\n");
+    const data = "Category,Estimated,Actual,Difference\n" + displayedCategories.map(c => `${c.name},${c.estimated},${c.actual},${c.estimated - c.actual}`).join("\n");
     const blob = new Blob([data], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -68,11 +98,12 @@ export function BudgetWorkspace({ trip, categories, eurRate }: BudgetWorkspacePr
           action={async (formData) => {
             await addExpense(formData);
             setShowExpenseForm(false);
+            router.refresh();
           }}
           className="grid shrink-0 gap-3 border-b border-border bg-background px-6 py-4 md:grid-cols-[1fr_140px_150px_1fr_auto]"
         >
           <select name="category" defaultValue="Food" className="h-9 rounded-md border border-border bg-surface px-3 text-xs">
-            {categories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}
+            {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
           </select>
           <input name="amount" type="number" min="0" step="0.01" required placeholder="Amount" className="h-9 rounded-md border border-border bg-surface px-3 text-xs" />
           <input name="spentAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="h-9 rounded-md border border-border bg-surface px-3 text-xs" />
@@ -81,7 +112,7 @@ export function BudgetWorkspace({ trip, categories, eurRate }: BudgetWorkspacePr
         </form>
       )}
 
-      {/* 2. Main Table Area */}
+      {/* 2. Main Ledger Area */}
       <main className="flex-1 overflow-y-auto">
         <table className="w-full border-collapse text-left">
            <thead>
@@ -94,7 +125,7 @@ export function BudgetWorkspace({ trip, categories, eurRate }: BudgetWorkspacePr
               </tr>
            </thead>
            <tbody className="divide-y divide-border/40">
-              {categories.map((cat) => {
+              {displayedCategories.map((cat) => {
                 const diff = cat.estimated - cat.actual;
                 const util = cat.estimated > 0 ? (cat.actual / cat.estimated) * 100 : 0;
                 return (
@@ -133,15 +164,106 @@ export function BudgetWorkspace({ trip, categories, eurRate }: BudgetWorkspacePr
                   </tr>
                 );
               })}
+              {displayedCategories.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted">
+                    No budget categories configured yet
+                  </td>
+                </tr>
+              )}
            </tbody>
         </table>
+
+        <section className="border-t border-border">
+          <div className="flex items-center justify-between px-6 py-4">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Recent Expenses</h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{expenses.length} records</span>
+          </div>
+          <div className="divide-y divide-border/40">
+            {expenses.map((expense) => (
+              editingExpenseId === expense.id ? (
+                <form
+                  key={expense.id}
+                  action={async (formData) => {
+                    await updateExpense(formData);
+                    setEditingExpenseId(null);
+                    router.refresh();
+                  }}
+                  className="grid gap-2 px-6 py-4 text-xs md:grid-cols-[140px_120px_140px_1fr_auto]"
+                >
+                  <input type="hidden" name="expenseId" value={expense.id} />
+                  <select name="category" defaultValue={expense.category} className="h-9 rounded-md border border-border bg-surface px-3 text-xs">
+                    {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                  <input name="amount" type="number" min="0" step="0.01" required defaultValue={expense.amount} className="h-9 rounded-md border border-border bg-surface px-3 text-xs" />
+                  <input name="spentAt" type="date" required defaultValue={expense.spentAt} className="h-9 rounded-md border border-border bg-surface px-3 text-xs" />
+                  <input name="note" defaultValue={expense.note ?? ""} placeholder="Note" className="h-9 rounded-md border border-border bg-surface px-3 text-xs" />
+                  <div className="flex items-center gap-2">
+                    <button type="submit" className="h-9 rounded-md bg-black px-3 text-[10px] font-bold uppercase tracking-widest text-white">Save</button>
+                    <button type="button" onClick={() => setEditingExpenseId(null)} className="grid size-9 place-items-center rounded-md border border-border text-muted hover:text-foreground">
+                      <X size={14} />
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div key={expense.id} className="grid gap-2 px-6 py-4 text-xs md:grid-cols-[140px_120px_120px_1fr_auto]">
+                  <span className="font-bold text-foreground">{expense.category}</span>
+                  <span className="font-bold text-foreground">{formatCurrency(expense.amount, expense.currency)}</span>
+                  <span className="text-muted">{expense.spentAt}</span>
+                  <span className="truncate text-muted">{expense.note || "No note"}</span>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingExpenseId(expense.id)}
+                      className="grid size-8 place-items-center rounded-md border border-border text-muted hover:text-foreground"
+                      aria-label={`Edit ${expense.category} expense`}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <form
+                      action={async (formData) => {
+                        await deleteExpense(formData);
+                        router.refresh();
+                      }}
+                    >
+                      <input type="hidden" name="expenseId" value={expense.id} />
+                      <button
+                        type="submit"
+                        className="grid size-8 place-items-center rounded-md border border-border text-muted hover:text-rose-600"
+                        aria-label={`Delete ${expense.category} expense`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )
+            ))}
+            {expenses.length === 0 && (
+              <div className="px-6 py-8 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted">
+                No expenses recorded
+              </div>
+            )}
+          </div>
+        </section>
       </main>
 
       {/* 3. Bottom Information Rail */}
       <footer className="flex h-12 shrink-0 items-center justify-between border-t border-border bg-surface px-6 text-[10px] font-black uppercase tracking-widest text-muted">
          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-2"><Search size={12} /> {eurRate.source.provider}</span>
-            <span className="text-foreground">1 USD = {eurRate.rate.toFixed(3)} EUR</span>
+            <span className="flex items-center gap-2">
+              <Search size={12} />
+              {exchangeRate?.source.provider ?? "currency-unavailable"}
+            </span>
+            {exchangeRate && !exchangeRate.source.isMock && exchangeRate.rate > 0 && destinationCurrency ? (
+              <span className="text-foreground">
+                1 {baseCurrency} = {exchangeRate.rate.toFixed(3)} {destinationCurrency}
+              </span>
+            ) : (
+              <span className="text-foreground">
+                {destinationCurrency ? `Conversion to ${destinationCurrency} unavailable` : "Destination currency unavailable"}
+              </span>
+            )}
             <div className="h-4 w-px bg-border" />
             <span className="flex items-center gap-2"><ShieldCheck size={12} className="text-emerald-500" /> Compliance Active</span>
          </div>

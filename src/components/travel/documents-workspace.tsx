@@ -75,7 +75,9 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                    </h4>
                    {note.importGroupId && <div className="size-1.5 rounded-full bg-emerald-500" />}
                 </div>
-                <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted">{note.type}</p>
+                <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted">
+                  {note.type}{note.importGroupId ? " · Gmail imported" : ""}
+                </p>
              </button>
            ))}
            {notes.length === 0 && (
@@ -149,16 +151,19 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                      <section className="space-y-6">
                         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-muted">
                            <span>Refrence Content</span>
-                           {activeNote?.link && !isUploadedFile(activeNote.link) && (
+                           {activeNote?.link && isExternalLink(activeNote.link) && (
                              <a href={activeNote.link} target="_blank" className="flex items-center gap-2 text-foreground hover:underline">
                                 Official Link <ExternalLink size={10} />
                              </a>
                            )}
                         </div>
                         {activeNote?.link && isUploadedFile(activeNote.link) && (
-                          <AttachmentSummary href={activeNote.link} />
+                          <AttachmentPreview href={activeNote.link} />
                         )}
-                        <Input name="link" defaultValue={activeNote?.link ?? ""} placeholder="Reference link" className="h-9 bg-surface" />
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-medium text-amber-900">
+                          Files are stored locally and are not encrypted.
+                        </div>
+                        <Input name="link" defaultValue={activeNote?.link ?? ""} placeholder="Optional external reference link" className="h-9 bg-surface" />
                         <Input name="file" type="file" className="h-9 bg-surface" />
                         <Textarea 
                            name="content"
@@ -196,25 +201,48 @@ function isUploadedFile(link: string) {
   return link.startsWith("/uploads/travel/");
 }
 
-function AttachmentSummary({ href }: { href: string }) {
+function isExternalLink(link: string) {
+  return /^https?:\/\//i.test(link);
+}
+
+function AttachmentPreview({ href }: { href: string }) {
   const fileName = href.split("/").pop() ?? "uploaded-file";
-  const extension = fileName.split(".").pop()?.toUpperCase() ?? "FILE";
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const displayExtension = extension.toUpperCase() || "FILE";
+  const isImage = ["png", "jpg", "jpeg", "gif", "webp", "avif"].includes(extension);
+  const isPdf = extension === "pdf";
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-4">
-      <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted">Uploaded attachment</p>
-        <p className="mt-1 truncate text-sm font-bold text-foreground">{fileName}</p>
-        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted">{extension}</p>
+    <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted">Uploaded attachment</p>
+          <p className="mt-1 truncate text-sm font-bold text-foreground">{fileName}</p>
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted">{displayExtension}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <a href={href} download className="rounded-md bg-black px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-zinc-800">
+            Download
+          </a>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <a href={href} target="_blank" className="rounded-md border border-border px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-surface-2">
-          Open
-        </a>
-        <a href={href} download className="rounded-md bg-black px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-zinc-800">
-          Download
-        </a>
-      </div>
+      {isImage && (
+        <div className="overflow-hidden rounded-lg border border-border bg-background">
+          <img src={href} alt={fileName} className="max-h-[420px] w-full object-contain" />
+        </div>
+      )}
+      {isPdf && (
+        <iframe
+          src={href}
+          title={fileName}
+          className="h-[420px] w-full rounded-lg border border-border bg-background"
+        />
+      )}
+      {!isImage && !isPdf && (
+        <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted">
+          Inline preview is not available for this file type. Download it to inspect the attachment.
+        </div>
+      )}
     </div>
   );
 }

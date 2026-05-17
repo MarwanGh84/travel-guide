@@ -16,6 +16,7 @@ export default async function BookingsPage() {
         endDate: booking.endAt?.toISOString().slice(0, 10),
         link: booking.link,
         notes: booking.notes,
+        importGroupId: booking.importGroupId,
       }))
     : [];
 

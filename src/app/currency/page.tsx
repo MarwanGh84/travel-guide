@@ -1,6 +1,7 @@
 import { CurrencyWorkspace } from "@/components/travel/currency-workspace";
 import { getExchangeRate } from "@/lib/api/currencyService";
 import { getPrimaryTrip } from "@/lib/db/travel";
+import { getCurrencyForCountry } from "@/lib/travel/currencies";
 import { tripLength } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,30 +24,4 @@ export default async function CurrencyPage() {
       tripDuration={tripDuration}
     />
   );
-}
-
-function getCurrencyForCountry(country: string): string | null {
-  const map: Record<string, string> = {
-    "Japan": "JPY",
-    "United Kingdom": "GBP",
-    "UK": "GBP",
-    "France": "EUR",
-    "Germany": "EUR",
-    "Italy": "EUR",
-    "Spain": "EUR",
-    "Switzerland": "CHF",
-    "United Arab Emirates": "AED",
-    "UAE": "AED",
-    "Thailand": "THB",
-    "Singapore": "SGD",
-    "Australia": "AUD",
-    "Canada": "CAD",
-    "Turkey": "TRY",
-    "Lebanon": "LBP",
-    "Indonesia": "IDR",
-    "Bali": "IDR"
-  };
-
-  const normalized = country.trim();
-  return map[normalized] || null;
 }

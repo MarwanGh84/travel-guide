@@ -150,10 +150,92 @@ export async function addExpense(formData: FormData) {
       spentAt: parseDateField(formData.get("spentAt")),
     },
   });
-  await prisma.budgetCategory.updateMany({
+  const updated = await prisma.budgetCategory.updateMany({
     where: { tripId: trip.id, name: category },
     data: { actualAmount: { increment: amount } },
   });
+  if (updated.count === 0) {
+    await prisma.budgetCategory.create({
+      data: {
+        tripId: trip.id,
+        name: category,
+        estimatedAmount: 0,
+        actualAmount: amount,
+      },
+    });
+  }
+  revalidatePath("/budget");
+  revalidatePath("/");
+}
+
+export async function updateExpense(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const expenseId = formString(formData, "expenseId");
+  if (!trip || !expenseId) return;
+
+  const existingExpense = await prisma.expense.findFirst({
+    where: { id: expenseId, tripId: trip.id },
+  });
+  if (!existingExpense) return;
+
+  const amount = parseNumberField(formData.get("amount"), existingExpense.amount);
+  const category = formString(formData, "category", existingExpense.category);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.expense.updateMany({
+      where: { id: expenseId, tripId: trip.id },
+      data: {
+        category,
+        amount,
+        note: formString(formData, "note"),
+        spentAt: parseDateField(formData.get("spentAt")),
+      },
+    });
+
+    await tx.budgetCategory.updateMany({
+      where: { tripId: trip.id, name: existingExpense.category },
+      data: { actualAmount: { decrement: existingExpense.amount } },
+    });
+
+    const updated = await tx.budgetCategory.updateMany({
+      where: { tripId: trip.id, name: category },
+      data: { actualAmount: { increment: amount } },
+    });
+
+    if (updated.count === 0) {
+      await tx.budgetCategory.create({
+        data: {
+          tripId: trip.id,
+          name: category,
+          estimatedAmount: 0,
+          actualAmount: amount,
+        },
+      });
+    }
+  });
+
+  revalidatePath("/budget");
+  revalidatePath("/");
+}
+
+export async function deleteExpense(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const expenseId = formString(formData, "expenseId");
+  if (!trip || !expenseId) return;
+
+  const expense = await prisma.expense.findFirst({
+    where: { id: expenseId, tripId: trip.id },
+  });
+  if (!expense) return;
+
+  await prisma.$transaction([
+    prisma.expense.deleteMany({ where: { id: expenseId, tripId: trip.id } }),
+    prisma.budgetCategory.updateMany({
+      where: { tripId: trip.id, name: expense.category },
+      data: { actualAmount: { decrement: expense.amount } },
+    }),
+  ]);
+
   revalidatePath("/budget");
   revalidatePath("/");
 }
@@ -221,13 +303,14 @@ export async function addDocumentNote(formData: FormData) {
   const trip = await getPrimaryTrip();
   if (!trip) return;
   const uploadedUrl = await saveUploadedFile(formData.get("file"));
+  const referenceLink = formString(formData, "link");
   await prisma.documentNote.create({
     data: {
       tripId: trip.id,
       type: formString(formData, "type", "Journal note"),
       title: formString(formData, "title", "Untitled note"),
       content: formString(formData, "content"),
-      link: formString(formData, "link") || uploadedUrl,
+      link: uploadedUrl || referenceLink,
     },
   });
   revalidatePath("/documents");
@@ -238,7 +321,8 @@ export async function updateDocumentNote(formData: FormData) {
   const documentNoteId = formString(formData, "documentNoteId");
   if (!trip || !documentNoteId) return;
   const uploadedUrl = await saveUploadedFile(formData.get("file"));
-  const link = formString(formData, "link") || uploadedUrl;
+  const referenceLink = formString(formData, "link");
+  const link = uploadedUrl || referenceLink;
   await prisma.documentNote.updateMany({
     where: { id: documentNoteId, tripId: trip.id },
     data: {

@@ -127,7 +127,9 @@ export default async function TodayPage() {
                      <div className="relative z-10">
                         <div className="flex items-center justify-between">
                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">{weather.destination || "Global"}</span>
-                           <span className="flex h-4 items-center rounded bg-blue-500/20 px-2 text-[8px] font-black uppercase tracking-widest text-blue-300 ring-1 ring-blue-500/30">Live</span>
+                           <span className="flex h-4 items-center rounded bg-blue-500/20 px-2 text-[8px] font-black uppercase tracking-widest text-blue-300 ring-1 ring-blue-500/30">
+                             Open-Meteo
+                           </span>
                         </div>
                         <div className="mt-4 flex items-end gap-4">
                            <span className="text-6xl font-black tracking-tighter leading-none">{weather.daily[0]?.maxC ?? "--"}°</span>
