@@ -142,6 +142,35 @@ export const GoogleRoutesResponseSchema = z.object({
   })).optional(),
 });
 
+export const RapidHotelItemSchema = z.object({
+  hotel_name: z.string().optional(),
+  city: z.string().optional(),
+  district: z.string().optional(),
+  review_score: z.number().optional(),
+  review_score_word: z.string().optional(),
+  composite_price_breakdown: z.object({
+    gross_amount_per_night: z.object({
+      value: z.number().optional(),
+      currency: z.string().optional(),
+    }).optional(),
+  }).optional(),
+  min_total_price: z.number().optional(),
+  currency_code: z.string().optional(),
+  main_photo_url: z.string().url().optional(),
+  checkin: z.object({ from: z.string().optional() }).optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  distance_to_cc: z.string().optional(),
+  url: z.string().url().optional(),
+}).passthrough();
+
+export const RapidHotelSearchResponseSchema = z.object({
+  data: z.object({
+    result: z.array(RapidHotelItemSchema).optional(),
+  }).optional(),
+  result: z.array(RapidHotelItemSchema).optional(),
+}).passthrough();
+
 export const GeocodeResponseSchema = z.object({
   results: z.array(z.object({
     name: z.string(),

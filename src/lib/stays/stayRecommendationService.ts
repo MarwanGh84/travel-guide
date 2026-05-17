@@ -82,7 +82,7 @@ export async function getStayRecommendations(trip: PrimaryTrip): Promise<{
 
   const zones: StayZoneRecommendation[] = await Promise.all(clusters.map(async (cluster, index) => {
     // For each cluster center, fetch live hotels
-    const hotels = await searchLiveHotels(
+    const inventory = await searchLiveHotels(
       cluster.center.lat,
       cluster.center.lng,
       checkin,
@@ -113,15 +113,29 @@ export async function getStayRecommendations(trip: PrimaryTrip): Promise<{
       latitude: cluster.center.lat,
       longitude: cluster.center.lng,
       source: "itinerary-analysis",
-      hotels: hotels
+      hotels: inventory.hotels,
+      hotelInventoryStatus: inventory.status,
+      hotelInventoryMessage: inventory.message,
     };
   }));
 
-  const searchSuggestions: HotelSearchSuggestion[] = zones.map(zone => ({
-    label: `Hotels near ${zone.areaName}`,
-    query: `Hotels near ${zone.areaName} ${zone.destination}`,
-    area: zone.areaName
-  }));
+  const searchSuggestions: HotelSearchSuggestion[] = zones.flatMap((zone) => [
+    {
+      label: `Hotels near ${zone.areaName}`,
+      query: `Hotels near ${zone.areaName} ${zone.destination}`,
+      area: zone.areaName,
+    },
+    {
+      label: `Boutique stays near ${zone.areaName}`,
+      query: `Boutique stays near ${zone.areaName} ${zone.destination}`,
+      area: zone.areaName,
+    },
+    {
+      label: `Sea-view stays in ${zone.destination}`,
+      query: `Sea-view stays in ${zone.destination}`,
+      area: zone.areaName,
+    },
+  ]);
 
   return {
     strategy,

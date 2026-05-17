@@ -128,8 +128,11 @@ export type HotelSearchParams = {
 export type HotelResult = {
   name: string;
   area: string;
-  rating: number;
-  estimatedPricePerNight: number;
+  rating?: number;
+  estimatedPricePerNight?: number;
+  currency?: string;
+  availability?: boolean;
+  distanceKm?: number;
   amenities: string[];
   bookingLink?: string;
   photoUrl?: string;

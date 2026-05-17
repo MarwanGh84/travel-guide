@@ -1,5 +1,7 @@
 import { HotelResult } from "./travel";
 
+export type HotelInventoryStatus = "live" | "empty" | "missing-credentials" | "provider-error";
+
 export type StayZoneRecommendation = {
   id: string;
   areaName: string;
@@ -18,6 +20,8 @@ export type StayZoneRecommendation = {
   longitude?: number;
   source: "itinerary-analysis" | "google-places" | "osm" | "ai";
   hotels: HotelResult[];
+  hotelInventoryStatus: HotelInventoryStatus;
+  hotelInventoryMessage: string;
 };
 
 export type HotelSearchSuggestion = {
