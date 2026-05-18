@@ -30,7 +30,7 @@ export async function POST() {
         backupOption: "Keep one simple backup option for weather or low energy.",
         notes: "",
       },
-      include: { items: { orderBy: { sortOrder: "asc" } } },
+      include: { items: { include: { placeRecommendation: true }, orderBy: { sortOrder: "asc" } } },
     });
 
     await invalidateApprovalIfNeeded(tx, trip.id, trip.status);
@@ -74,7 +74,7 @@ export async function PATCH(request: Request) {
         backupOption: data.backupOption,
         notes: data.notes,
       },
-      include: { items: { orderBy: { sortOrder: "asc" } } },
+      include: { items: { include: { placeRecommendation: true }, orderBy: { sortOrder: "asc" } } },
     });
 
     await invalidateApprovalIfNeeded(tx, existingDay.tripId, existingDay.trip.status);
@@ -123,7 +123,27 @@ function serializeDay(day: {
   transportNotes?: string | null;
   backupOption?: string | null;
   notes?: string | null;
-  items?: { title: string }[];
+  items?: {
+    id: string;
+    title: string;
+    timeOfDay?: string | null;
+    placeRecommendationId?: string | null;
+    placeRecommendation?: {
+      id: string;
+      name: string;
+      category: string;
+      description: string;
+      rating?: number | null;
+      location: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      openingStatus?: string | null;
+      whyRecommended: string;
+      isHiddenGem: boolean;
+      hiddenGemScore: number;
+      source: string;
+    } | null;
+  }[];
 }) {
   return {
     id: day.id,
@@ -139,6 +159,38 @@ function serializeDay(day: {
     backupOption: day.backupOption ?? "",
     notes: day.notes ?? "",
     placesIncluded: day.items?.map((item) => item.title) ?? [],
+    places: day.items?.map((item) => ({
+      id: item.id,
+      title: item.title,
+      timeOfDay: item.timeOfDay ?? undefined,
+      placeRecommendationId: item.placeRecommendationId ?? undefined,
+      place: item.placeRecommendation
+        ? {
+            id: item.placeRecommendation.id,
+            name: item.placeRecommendation.name,
+            category: item.placeRecommendation.category,
+            description: item.placeRecommendation.description,
+            rating: item.placeRecommendation.rating ?? undefined,
+            costLevel: "$$" as const,
+            location: item.placeRecommendation.location,
+            coordinates:
+              typeof item.placeRecommendation.latitude === "number" &&
+              typeof item.placeRecommendation.longitude === "number"
+                ? { lat: item.placeRecommendation.latitude, lng: item.placeRecommendation.longitude }
+                : undefined,
+            openingStatus: item.placeRecommendation.openingStatus ?? undefined,
+            whyRecommended: item.placeRecommendation.whyRecommended,
+            isHiddenGem: item.placeRecommendation.isHiddenGem,
+            hiddenGemScore: item.placeRecommendation.hiddenGemScore,
+            source: {
+              provider: item.placeRecommendation.source,
+              isMock: false,
+              note: "Linked itinerary place.",
+              classification: "provider" as const,
+            },
+          }
+        : undefined,
+    })) ?? [],
   };
 }
 

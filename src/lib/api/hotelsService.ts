@@ -39,7 +39,8 @@ export async function searchLiveHotels(
     url.searchParams.append("currency_code", "USD");
     url.searchParams.append("languagecode", "en-us");
     url.searchParams.append("sort_by", "distance");
-    url.searchParams.append("radius", "5");
+    // booking-com15 rejects `5`; `10` is the smallest verified radius that returns a valid response.
+    url.searchParams.append("radius", "10");
 
     const response = await fetch(url.toString(), {
       method: "GET",
@@ -61,6 +62,14 @@ export async function searchLiveHotels(
     }
 
     const payload = RapidHotelSearchResponseSchema.parse(await response.json());
+    if (payload.status === false) {
+      return {
+        hotels: [],
+        status: "provider-error",
+        message: `Live hotel inventory unavailable: provider rejected the request${formatProviderMessage(payload.message)}.`,
+        provider: "rapidapi-booking-com15",
+      };
+    }
     const providerHotels = payload.data?.result ?? payload.result ?? [];
     if (!providerHotels.length) {
       return {
@@ -83,6 +92,10 @@ export async function searchLiveHotels(
           currency: hotel.composite_price_breakdown?.gross_amount_per_night?.currency ?? hotel.currency_code,
           availability: true,
           distanceKm: parseDistanceKm(hotel.distance_to_cc),
+          coordinates:
+            typeof hotel.latitude === "number" && typeof hotel.longitude === "number"
+              ? { lat: hotel.latitude, lng: hotel.longitude }
+              : undefined,
           amenities: [
             hotel.review_score_word,
             hotel.checkin?.from ? `Check-in from ${hotel.checkin.from}` : undefined,
@@ -124,4 +137,13 @@ function parseDistanceKm(value?: string) {
   if (!value) return undefined;
   const normalized = Number.parseFloat(value.replace(",", "."));
   return Number.isFinite(normalized) ? normalized : undefined;
+}
+
+function formatProviderMessage(message: string | Array<Record<string, string>> | undefined) {
+  if (!message) return ".";
+  if (typeof message === "string") return ` (${message}).`;
+  const details = message
+    .flatMap((entry) => Object.entries(entry).map(([key, value]) => `${key}: ${value}`))
+    .join(", ");
+  return details ? ` (${details}).` : ".";
 }

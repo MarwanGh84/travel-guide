@@ -75,6 +75,13 @@ export type ItineraryDay = {
   afternoonPlan: string;
   eveningPlan: string;
   placesIncluded: string[];
+  places?: Array<{
+    id: string;
+    title: string;
+    timeOfDay?: string;
+    placeRecommendationId?: string;
+    place?: PlaceRecommendation;
+  }>;
   restaurantIdeas: string[];
   hiddenGem: string;
   estimatedCost: number;
@@ -133,6 +140,9 @@ export type HotelResult = {
   currency?: string;
   availability?: boolean;
   distanceKm?: number;
+  averageItineraryDistanceKm?: number;
+  nearestItineraryPlace?: string;
+  coordinates?: { lat: number; lng: number };
   amenities: string[];
   bookingLink?: string;
   photoUrl?: string;

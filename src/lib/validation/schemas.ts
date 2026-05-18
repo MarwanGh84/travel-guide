@@ -165,6 +165,11 @@ export const RapidHotelItemSchema = z.object({
 }).passthrough();
 
 export const RapidHotelSearchResponseSchema = z.object({
+  status: z.boolean().optional(),
+  message: z.union([
+    z.string(),
+    z.array(z.record(z.string(), z.string())),
+  ]).optional(),
   data: z.object({
     result: z.array(RapidHotelItemSchema).optional(),
   }).optional(),

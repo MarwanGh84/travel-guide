@@ -512,6 +512,35 @@ export async function deleteTrip() {
   redirect("/trips");
 }
 
+export async function deleteTripById(formData: FormData) {
+  const tripId = formString(formData, "tripId");
+  if (!tripId) return;
+
+  const user = await getOrCreateUser();
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, userId: user.id },
+    select: { id: true },
+  });
+
+  if (!trip) return;
+
+  await prisma.trip.delete({ where: { id: trip.id } });
+
+  if (user.activeTripId === trip.id) {
+    const nextTrip = await prisma.trip.findFirst({
+      where: { userId: user.id },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      select: { id: true },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { activeTripId: nextTrip?.id ?? null },
+    });
+  }
+
+  revalidateAll();
+}
+
 export async function selectTrip(formData: FormData) {
   const tripId = formString(formData, "tripId");
   if (!tripId) return;

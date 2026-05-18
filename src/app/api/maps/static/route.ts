@@ -9,11 +9,16 @@ export async function GET(request: Request) {
   const markers = searchParams.get("markers") !== "false";
   const routePath = searchParams.get("route") !== "false";
   const zoomParam = Number(searchParams.get("zoom"));
+  const latParam = Number(searchParams.get("lat"));
+  const lngParam = Number(searchParams.get("lng"));
   const trip = await getPrimaryTrip();
   const places = trip ? toRoutePlaceRecommendations(trip) : [];
   const route = await getMapRoute(places);
   const zoom = Number.isFinite(zoomParam) ? Math.min(18, Math.max(3, Math.round(zoomParam))) : undefined;
-  const url = buildStaticMapUrl(route, `${Math.min(width, 1200)}x${Math.min(height, 1200)}`, { markers, routePath, zoom });
+  const center = Number.isFinite(latParam) && Number.isFinite(lngParam)
+    ? { lat: latParam, lng: lngParam }
+    : undefined;
+  const url = buildStaticMapUrl(route, `${Math.min(width, 1200)}x${Math.min(height, 1200)}`, { markers, routePath, zoom, center });
 
   if (!url) {
     return NextResponse.json({ ok: false, message: "No map key or pins available." }, { status: 404 });
@@ -28,6 +33,7 @@ export async function GET(request: Request) {
       markers,
       routePath: false,
       zoom,
+      center,
     });
     if (fallbackUrl) {
       response = await fetch(fallbackUrl, { next: { revalidate: 60 * 60 * 6 } });

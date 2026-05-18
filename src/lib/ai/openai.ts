@@ -48,7 +48,8 @@ export async function generateFullItinerary(trip: TripDraft, savedPlaces: PlaceR
     `Generate a high-density, professional day-by-day itinerary for exactly ${length} days as a JSON object with a "days" array.
 Return each day with this exact shape: { "theme": string, "morningPlan": string, "afternoonPlan": string, "eveningPlan": string, "restaurantIdeas": string[], "hiddenGem": string, "estimatedCost": number, "transportNotes": string, "backupOption": string, "notes": string, "placesIncluded": string[] }.
 The estimatedCost must be a realistic numeric daily out-of-pocket estimate for all travelers in USD.
-The placesIncluded field must contain names from this list if relevant: ${JSON.stringify(selectedPlaceNames)}.
+The placesIncluded field must use only exact names from this provider-backed list: ${JSON.stringify(selectedPlaceNames)}.
+Mention the chosen places by exact name inside the morningPlan, afternoonPlan, or eveningPlan text so the itinerary reads as a plan built from real selected locations, not generic prose.
 Trip: ${JSON.stringify(trip)}`,
     { days: [] },
     (value) => AiItineraryResponseSchema.parse(value),

@@ -22,7 +22,7 @@ export type MissingMapPlace = {
 };
 
 export type MapRoute = {
-  center: { lat: number; lng: number };
+  center?: { lat: number; lng: number };
   zoom: number;
   pins: MapPin[];
   missingPlaces: MissingMapPlace[];
@@ -44,8 +44,6 @@ export type MapSegment = {
   duration?: string;
   metricSource: "straight-line-estimate";
 };
-
-const fallbackCenter = { lat: 37.9838, lng: 23.7275 };
 
 export async function getMapRoute(places: RoutePlaceRecommendation[]): Promise<MapRoute> {
   const resolved = await Promise.all(places.map(resolvePin));
@@ -103,11 +101,13 @@ type StaticMapOptions = {
   markers?: boolean;
   routePath?: boolean;
   zoom?: number;
+  center?: { lat: number; lng: number };
 };
 
 export function buildStaticMapUrl(route: MapRoute, size = "920x540", options: StaticMapOptions = {}) {
   const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
-  if (!key || !route.pins.length) return null;
+  const center = options.center ?? route.center;
+  if (!key || !route.pins.length || !center) return null;
   const { markers = true, routePath = true } = options;
 
   const params = new URLSearchParams({
@@ -115,7 +115,7 @@ export function buildStaticMapUrl(route: MapRoute, size = "920x540", options: St
     size,
     scale: "2",
     maptype: "roadmap",
-    center: `${route.center.lat},${route.center.lng}`,
+    center: `${center.lat},${center.lng}`,
     zoom: String(options.zoom ?? route.zoom),
   });
 
@@ -341,7 +341,7 @@ function toRadians(value: number) {
 }
 
 function centerFromPins(pins: MapPin[]) {
-  if (!pins.length) return fallbackCenter;
+  if (!pins.length) return undefined;
   const sum = pins.reduce(
     (acc, pin) => ({ lat: acc.lat + pin.lat, lng: acc.lng + pin.lng }),
     { lat: 0, lng: 0 },

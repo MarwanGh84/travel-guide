@@ -75,7 +75,7 @@ export async function getStayRecommendations(trip: PrimaryTrip): Promise<{
   }
 
   const mainCluster = clusters[0];
-  const strategy = `Based on your ${trip.itineraryDays.length} planned days, we recommend staying in or near the ${mainCluster.points[0].name} area to minimize daily transit. This cluster contains ${mainCluster.weight} of your planned points of interest.`;
+  const strategy = `Based on your ${trip.itineraryDays.length} planned days, we recommend staying in or near the ${mainCluster.points[0].name} area to minimize daily transit. This zone contains ${mainCluster.weight} mapped itinerary places.`;
 
   const checkin = trip.startDate.toISOString().slice(0, 10);
   const checkout = trip.endDate.toISOString().slice(0, 10);
@@ -89,6 +89,7 @@ export async function getStayRecommendations(trip: PrimaryTrip): Promise<{
       checkout,
       trip.travelerCount
     );
+    const hotels = rankHotelsByItineraryFit(inventory.hotels, cluster);
 
     const averageDistanceKm = averageDistanceFromCenter(cluster);
 
@@ -98,10 +99,10 @@ export async function getStayRecommendations(trip: PrimaryTrip): Promise<{
       destination: trip.destination || "",
       country: trip.destinationCountry || "",
       reason: index === 0 
-        ? `Highest concentration of planned activities (${cluster.weight} spots).` 
+        ? `${cluster.weight} mapped itinerary places in this zone.` 
         : `Secondary cluster providing access to ${cluster.points[0].name}.`,
       bestFor: inferBestFor(cluster, trip.travelStyle),
-      nearbyPlaces: cluster.points.map(p => p.name).slice(0, 3),
+      nearbyPlaces: cluster.points.map(p => p.name),
       averageDistanceKm,
       budgetFit: inferBudgetFit(trip.budget, trip.itineraryDays.length),
       pros: [
@@ -113,7 +114,7 @@ export async function getStayRecommendations(trip: PrimaryTrip): Promise<{
       latitude: cluster.center.lat,
       longitude: cluster.center.lng,
       source: "itinerary-analysis",
-      hotels: inventory.hotels,
+      hotels,
       hotelInventoryStatus: inventory.status,
       hotelInventoryMessage: inventory.message,
     };
@@ -164,6 +165,38 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
+}
+
+function rankHotelsByItineraryFit(hotels: StayZoneRecommendation["hotels"], cluster: Cluster) {
+  return hotels
+    .map((hotel) => {
+      if (!hotel.coordinates) return hotel;
+      const pointDistances = cluster.points
+        .filter((point) => point.coordinates)
+        .map((point) => ({
+          name: point.name,
+          distanceKm: haversineKm(hotel.coordinates!, point.coordinates!),
+        }))
+        .sort((a, b) => a.distanceKm - b.distanceKm);
+      const averageItineraryDistanceKm = pointDistances.length
+        ? Number((pointDistances.reduce((sum, point) => sum + point.distanceKm, 0) / pointDistances.length).toFixed(1))
+        : undefined;
+      return {
+        ...hotel,
+        distanceKm: Number(haversineKm(cluster.center, hotel.coordinates).toFixed(1)),
+        averageItineraryDistanceKm,
+        nearestItineraryPlace: pointDistances[0]?.name,
+      };
+    })
+    .sort((a, b) => {
+      const itineraryDistanceDelta =
+        (a.averageItineraryDistanceKm ?? Number.POSITIVE_INFINITY) -
+        (b.averageItineraryDistanceKm ?? Number.POSITIVE_INFINITY);
+      if (itineraryDistanceDelta !== 0) return itineraryDistanceDelta;
+      const distanceDelta = (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY);
+      if (distanceDelta !== 0) return distanceDelta;
+      return (b.rating ?? -1) - (a.rating ?? -1);
+    });
 }
 
 function toRadians(value: number) {

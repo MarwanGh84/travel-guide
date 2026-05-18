@@ -23,6 +23,7 @@ export async function POST(request: Request) {
   });
   
   const planningPlaces = places.length ? places : (selectedPlaces.length ? selectedPlaces : toPlaceRecommendations(trip));
+  const planningPlacesByName = new Map(planningPlaces.map((place) => [normalizeName(place.name), place]));
 
   // @ts-expect-error - Complex type mapping between Trip and OpenAI request
   const result = await generateFullItinerary(tripDraft, planningPlaces);
@@ -33,7 +34,8 @@ export async function POST(request: Request) {
 
     await prisma.$transaction(async (tx) => {
       await tx.itineraryDay.deleteMany({ where: { tripId: trip.id } });
-      for (const day of result.data) {
+      for (const [dayIndex, day] of result.data.entries()) {
+        const canonicalPlaces = canonicalizeItineraryPlaces(day.placesIncluded, planningPlaces, planningPlacesByName, dayIndex);
         await tx.itineraryDay.create({
           data: {
             tripId: trip.id,
@@ -49,11 +51,11 @@ export async function POST(request: Request) {
             backupOption: day.backupOption,
             notes: day.notes,
             items: {
-              create: day.placesIncluded.map((title, index) => ({
-                title,
-                placeRecommendationId: recommendationsByName.get(normalizeName(title)) ?? null,
+              create: canonicalPlaces.map((place, index) => ({
+                title: place.name,
+                placeRecommendationId: recommendationsByName.get(normalizeName(place.name)) ?? null,
                 timeOfDay: index === 0 ? "morning" : index === 1 ? "afternoon" : "evening",
-                description: "Selected for itinerary planning.",
+                description: "Provider-backed place selected for itinerary planning.",
                 sortOrder: index,
               })),
             },
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
 
     const savedDays = await prisma.itineraryDay.findMany({
       where: { tripId: trip.id },
-      include: { items: { orderBy: { sortOrder: "asc" } } },
+      include: { items: { include: { placeRecommendation: true }, orderBy: { sortOrder: "asc" } } },
       orderBy: { date: "asc" },
     });
 
@@ -87,6 +89,38 @@ export async function POST(request: Request) {
         afternoonPlan: day.afternoonPlan,
         eveningPlan: day.eveningPlan,
         placesIncluded: day.items.map((item) => item.title),
+        places: day.items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          timeOfDay: item.timeOfDay ?? undefined,
+          placeRecommendationId: item.placeRecommendationId ?? undefined,
+          place: item.placeRecommendation
+            ? {
+                id: item.placeRecommendation.id,
+                name: item.placeRecommendation.name,
+                category: item.placeRecommendation.category,
+                description: item.placeRecommendation.description,
+                rating: item.placeRecommendation.rating ?? undefined,
+                costLevel: "$$",
+                location: item.placeRecommendation.location,
+                coordinates:
+                  typeof item.placeRecommendation.latitude === "number" &&
+                  typeof item.placeRecommendation.longitude === "number"
+                    ? { lat: item.placeRecommendation.latitude, lng: item.placeRecommendation.longitude }
+                    : undefined,
+                openingStatus: item.placeRecommendation.openingStatus ?? undefined,
+                whyRecommended: item.placeRecommendation.whyRecommended,
+                isHiddenGem: item.placeRecommendation.isHiddenGem,
+                hiddenGemScore: item.placeRecommendation.hiddenGemScore,
+                source: {
+                  provider: item.placeRecommendation.source,
+                  isMock: false,
+                  note: "Linked itinerary place.",
+                  classification: "provider" as const,
+                },
+              }
+            : undefined,
+        })),
         restaurantIdeas: day.restaurantIdeas?.split(",").map((item) => item.trim()).filter(Boolean) ?? [],
         hiddenGem: day.hiddenGem ?? "",
         estimatedCost: day.estimatedCost,
@@ -98,4 +132,31 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(result);
+}
+
+function canonicalizeItineraryPlaces<T extends { id: string; name: string }>(
+  requestedNames: string[],
+  planningPlaces: T[],
+  planningPlacesByName: Map<string, T>,
+  dayIndex: number,
+) {
+  const matched = requestedNames
+    .map((name) => planningPlacesByName.get(normalizeName(name)))
+    .filter((place): place is T => Boolean(place));
+
+  const uniqueMatched = dedupePlaces(matched);
+  if (uniqueMatched.length > 0 || planningPlaces.length === 0) return uniqueMatched;
+
+  const start = (dayIndex * 3) % planningPlaces.length;
+  const fallback = Array.from({ length: Math.min(3, planningPlaces.length) }, (_, offset) => planningPlaces[(start + offset) % planningPlaces.length]);
+  return dedupePlaces(fallback);
+}
+
+function dedupePlaces<T extends { id: string }>(places: T[]) {
+  const seen = new Set<string>();
+  return places.filter((place) => {
+    if (seen.has(place.id)) return false;
+    seen.add(place.id);
+    return true;
+  });
 }

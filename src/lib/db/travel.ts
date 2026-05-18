@@ -230,6 +230,38 @@ export function toItineraryDays(trip: PrimaryTrip): ItineraryDay[] {
     afternoonPlan: day.afternoonPlan,
     eveningPlan: day.eveningPlan,
     placesIncluded: day.items.map((item) => item.title),
+    places: day.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      timeOfDay: item.timeOfDay ?? undefined,
+      placeRecommendationId: item.placeRecommendationId ?? undefined,
+      place: item.placeRecommendation
+        ? {
+            id: item.placeRecommendation.id,
+            name: item.placeRecommendation.name,
+            category: item.placeRecommendation.category,
+            description: item.placeRecommendation.description,
+            rating: item.placeRecommendation.rating ?? undefined,
+            costLevel: "$$",
+            location: item.placeRecommendation.location,
+            coordinates:
+              typeof item.placeRecommendation.latitude === "number" &&
+              typeof item.placeRecommendation.longitude === "number"
+                ? { lat: item.placeRecommendation.latitude, lng: item.placeRecommendation.longitude }
+                : undefined,
+            openingStatus: item.placeRecommendation.openingStatus ?? undefined,
+            whyRecommended: item.placeRecommendation.whyRecommended,
+            isHiddenGem: item.placeRecommendation.isHiddenGem,
+            hiddenGemScore: item.placeRecommendation.hiddenGemScore,
+            source: {
+              provider: item.placeRecommendation.source,
+              isMock: false,
+              note: "Linked itinerary place.",
+              classification: "provider",
+            },
+          }
+        : undefined,
+    })),
     restaurantIdeas: splitList(day.restaurantIdeas ?? ""),
     hiddenGem: day.hiddenGem ?? "",
     estimatedCost: day.estimatedCost > 0 ? day.estimatedCost : inferStoredDayCost(trip, day.items),
