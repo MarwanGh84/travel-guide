@@ -169,6 +169,17 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                                </div>
                              )}
 
+                             {typeof hotel.averageItineraryDistanceKm === "number" ? (
+                               <p className="mt-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
+                                 {hotel.averageItineraryDistanceKm} km average from this zone&apos;s itinerary places
+                                 {hotel.nearestItineraryPlace ? ` · nearest to ${hotel.nearestItineraryPlace}` : ""}
+                               </p>
+                             ) : typeof hotel.distanceKm === "number" ? (
+                               <p className="mt-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
+                                 {hotel.distanceKm} km from zone center
+                               </p>
+                             ) : null}
+
                              <div className="mt-4 flex flex-wrap gap-1.5">
                                 {hotel.amenities.map((amenity, idx) => (
                                   <span key={idx} className="rounded border border-border bg-background px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted-foreground">
@@ -213,6 +224,9 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                      </section>
                      <section>
                         <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Itinerary Clusters</h3>
+                        <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          {activeZone.nearbyPlaces.length} mapped itinerary places in this zone
+                        </p>
                         <div className="flex flex-wrap gap-2">
                            {activeZone.nearbyPlaces.map((place, i) => (
                              <span key={i} className="rounded-lg border border-border bg-surface px-4 py-2 text-[11px] font-bold uppercase tracking-tight shadow-sm">{place}</span>

@@ -212,7 +212,7 @@ export default async function TodayPage() {
             <span className="flex items-center gap-2 font-bold text-foreground uppercase tracking-wider">{trip.destination} SECTOR ACTIVE</span>
          </div>
          <div className="hidden items-center gap-6 sm:flex">
-            <span>LAST SYNC: {new Date().toLocaleTimeString()}</span>
+            <span>STATUS: SERVER-SYNCED</span>
          </div>
       </footer>
     </div>

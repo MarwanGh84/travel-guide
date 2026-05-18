@@ -9,6 +9,7 @@ export default async function MapPage() {
   const placeRecommendations = trip ? toRoutePlaceRecommendations(trip) : [];
   const route = await getMapRoute(placeRecommendations);
   const mapImageBaseUrl = route.provider === "google-maps" ? "/api/maps/static?width=920&height=540&markers=false&route=false" : null;
+  const browserMapApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? null;
 
-  return <InteractiveMap route={route} mapImageBaseUrl={mapImageBaseUrl} />;
+  return <InteractiveMap route={route} mapImageBaseUrl={mapImageBaseUrl} browserMapApiKey={browserMapApiKey} />;
 }

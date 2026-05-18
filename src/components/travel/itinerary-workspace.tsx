@@ -53,6 +53,19 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
 
   const activeIndex = Math.max(0, days.findIndex((day) => day.id === activeDayId));
   const activeDay = days[activeIndex] ?? days[0];
+  const placesByNormalizedName = new Map([...selectedPlaces, ...allPlaces].map((place) => [normalizeName(place.name), place]));
+  const placesById = new Map([...selectedPlaces, ...allPlaces].map((place) => [place.id, place]));
+  const scheduledPlaces = getScheduledPlaces(activeDay, placesById, placesByNormalizedName);
+  const tacticalPoints =
+    activeDay?.places?.length
+      ? activeDay.places
+      : activeDay?.placesIncluded.map((title, index) => ({
+          id: `${activeDay.id}-${index}`,
+          title,
+          timeOfDay: undefined,
+          placeRecommendationId: undefined,
+          place: undefined,
+        })) ?? [];
 
   const generate = useCallback(async () => {
     setGenerating(true);
@@ -164,7 +177,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
   };
 
   const handleSelectPoint = (name: string) => {
-    const matched = [...selectedPlaces, ...allPlaces].find(p => normalizeName(p.name) === normalizeName(name));
+    const matched = placesByNormalizedName.get(normalizeName(name));
     setSelectedPointName(name);
     if (matched) {
       setSelectedPlace(matched);
@@ -290,32 +303,78 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                 </header>
 
                 <div className="space-y-12 pb-24">
-                   <PlanNode icon={Clock} label="MORNING" content={activeDay.morningPlan} />
-                   <PlanNode icon={Clock} label="AFTERNOON" content={activeDay.afternoonPlan} />
-                   <PlanNode icon={Clock} label="EVENING" content={activeDay.eveningPlan} />
-
-                   {activeDay.placesIncluded.length > 0 && (
+                   {tacticalPoints.length > 0 && (
                      <section>
                         <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Tactical Points</h3>
                         <div className="grid gap-2 sm:grid-cols-2">
-                           {activeDay.placesIncluded.map((name, i) => (
-                             <button 
-                                key={i}
-                                onClick={() => handleSelectPoint(name)}
-                                className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 text-left hover:border-black transition-all group"
-                             >
-                                <div className="flex items-center gap-3">
-                                   <div className="size-8 grid place-items-center rounded-lg bg-background border border-border text-muted group-hover:text-black">
-                                      <MapPin size={14} />
-                                   </div>
-                                   <span className="text-xs font-bold uppercase tracking-tight">{name}</span>
-                                </div>
-                                <ChevronRight size={12} className="text-muted group-hover:translate-x-1 transition-transform" />
-                             </button>
-                           ))}
+                           {tacticalPoints.map((point, i) => {
+                             const name = point.title;
+                             const linkedPlace =
+                               point.place ??
+                               (point.placeRecommendationId ? placesById.get(point.placeRecommendationId) : undefined) ??
+                               placesByNormalizedName.get(normalizeName(name));
+                             return (
+                               <div
+                                  key={i}
+                                  className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2 transition-all hover:border-black"
+                               >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectPoint(name)}
+                                    className="group flex min-w-0 flex-1 items-center justify-between rounded-lg p-2 text-left"
+                                  >
+                                     <div className="flex min-w-0 items-center gap-3">
+                                        <div className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted group-hover:text-black">
+                                           <MapPin size={14} />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <span className="block truncate text-xs font-bold uppercase tracking-tight">{name}</span>
+                                          <span className="mt-1 block truncate text-[9px] font-black uppercase tracking-widest text-muted">
+                                            {linkedPlace?.coordinates ? `${linkedPlace.location || "Provider mapped"} · ${linkedPlace.source.provider}` : linkedPlace ? "Provider record without coordinates" : "AI text only"}
+                                          </span>
+                                        </div>
+                                     </div>
+                                     <ChevronRight size={12} className="shrink-0 text-muted transition-transform group-hover:translate-x-1" />
+                                  </button>
+                                  {linkedPlace?.coordinates && (
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(buildPlaceDirectionsUrl(linkedPlace), "_blank")}
+                                      aria-label={`Navigate to ${linkedPlace.name}`}
+                                      title={`Navigate to ${linkedPlace.name}`}
+                                      className="grid size-10 shrink-0 place-items-center rounded-lg bg-black text-white shadow-sm transition-colors hover:bg-zinc-800"
+                                    >
+                                      <Navigation size={14} />
+                                    </button>
+                                  )}
+                               </div>
+                             );
+                           })}
                         </div>
                      </section>
                    )}
+
+                   <PlanNode
+                     icon={Clock}
+                     label="MORNING"
+                     content={activeDay.morningPlan}
+                     places={scheduledPlaces.morning}
+                     onSelectPlace={handleSelectPoint}
+                   />
+                   <PlanNode
+                     icon={Clock}
+                     label="AFTERNOON"
+                     content={activeDay.afternoonPlan}
+                     places={scheduledPlaces.afternoon}
+                     onSelectPlace={handleSelectPoint}
+                   />
+                   <PlanNode
+                     icon={Clock}
+                     label="EVENING"
+                     content={activeDay.eveningPlan}
+                     places={scheduledPlaces.evening}
+                     onSelectPlace={handleSelectPoint}
+                   />
                 </div>
              </div>
            ) : (
@@ -366,23 +425,33 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
 
                        <div className="space-y-3">
                           {selectedPlace.coordinates && (
-                            <Link href="/map" className="block w-full">
-                               <button className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 transition-all">
-                                  <MapPin size={14} /> View on Map
-                               </button>
-                            </Link>
+                            <>
+                              <Link href="/map" className="block w-full">
+                                 <button className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 transition-all">
+                                    <MapPin size={14} /> View on Map
+                                 </button>
+                              </Link>
+                              <button
+                                onClick={() => window.open(buildPlaceMapsUrl(selectedPlace), "_blank")}
+                                className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background text-[10px] font-black uppercase tracking-widest text-muted hover:text-black transition-all"
+                              >
+                                <Navigation size={14} /> Open Exact Location
+                              </button>
+                            </>
                           )}
                           {!selectedPlace.coordinates && (
                             <div className="rounded-lg border border-border bg-background px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted">
                               Map view unavailable because this place has no coordinates.
                             </div>
                           )}
-                          <button 
-                            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPlace.name)}`, "_blank")}
-                            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background text-[10px] font-black uppercase tracking-widest text-muted hover:text-black transition-all"
-                          >
-                             <Navigation size={14} /> Open Navigation
-                          </button>
+                          {!selectedPlace.coordinates && (
+                            <button 
+                              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPlace.name)}`, "_blank")}
+                              className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background text-[10px] font-black uppercase tracking-widest text-muted hover:text-black transition-all"
+                            >
+                               <Navigation size={14} /> Search in Google Maps
+                            </button>
+                          )}
                         </div>
                     </div>
                   ) : selectedPointName ? (
@@ -431,13 +500,111 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
   );
 }
 
-function PlanNode({ icon: Icon, label, content }: { icon: LucideIcon, label: string, content: string }) {
+function buildPlaceMapsUrl(place: PlaceRecommendation) {
+  if (place.coordinates) {
+    const query = `${place.coordinates.lat},${place.coordinates.lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
+}
+
+function buildPlaceDirectionsUrl(place: PlaceRecommendation) {
+  if (place.coordinates) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${place.coordinates.lat},${place.coordinates.lng}`)}`;
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
+}
+
+type ScheduledPlace = {
+  id: string;
+  title: string;
+  linkedPlace?: PlaceRecommendation;
+};
+
+function getScheduledPlaces(
+  day: ItineraryDay | undefined,
+  placesById: Map<string, PlaceRecommendation>,
+  placesByNormalizedName: Map<string, PlaceRecommendation>,
+) {
+  const empty = { morning: [] as ScheduledPlace[], afternoon: [] as ScheduledPlace[], evening: [] as ScheduledPlace[] };
+  if (!day?.places?.length) return empty;
+
+  return day.places.reduce((accumulator, point, index) => {
+    const slot =
+      point.timeOfDay === "morning" || point.timeOfDay === "afternoon" || point.timeOfDay === "evening"
+        ? point.timeOfDay
+        : index === 0
+          ? "morning"
+          : index === 1
+            ? "afternoon"
+            : "evening";
+    const linkedPlace =
+      point.place ??
+      (point.placeRecommendationId ? placesById.get(point.placeRecommendationId) : undefined) ??
+      placesByNormalizedName.get(normalizeName(point.title));
+
+    accumulator[slot].push({
+      id: point.id,
+      title: point.title,
+      linkedPlace,
+    });
+    return accumulator;
+  }, empty);
+}
+
+function PlanNode({
+  icon: Icon,
+  label,
+  content,
+  places,
+  onSelectPlace,
+}: {
+  icon: LucideIcon;
+  label: string;
+  content: string;
+  places: ScheduledPlace[];
+  onSelectPlace: (name: string) => void;
+}) {
   return (
     <div className="space-y-4">
        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-muted">
           <Icon size={14} className="text-black" /> {label}
        </div>
        <p className="text-xl font-medium leading-relaxed text-muted-2 tracking-tight">{content || "No activity scheduled for this window."}</p>
+       {places.length > 0 ? (
+         <div className="space-y-2">
+           {places.map(({ id, title, linkedPlace }) => (
+             <div key={id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2">
+               <button
+                 type="button"
+                 onClick={() => onSelectPlace(title)}
+                 className="min-w-0 flex-1 text-left"
+               >
+                 <span className="block truncate text-sm font-semibold text-foreground">{linkedPlace?.name ?? title}</span>
+                 <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-widest text-muted">
+                   {linkedPlace?.coordinates
+                     ? `${linkedPlace.location || "Provider mapped"} · ${linkedPlace.source.provider}`
+                     : linkedPlace
+                       ? "Provider record without coordinates"
+                       : "Unlinked itinerary text"}
+                 </span>
+               </button>
+               {linkedPlace?.coordinates ? (
+                 <button
+                   type="button"
+                   onClick={() => window.open(buildPlaceDirectionsUrl(linkedPlace), "_blank")}
+                   aria-label={`Navigate to ${linkedPlace.name}`}
+                   title={`Navigate to ${linkedPlace.name}`}
+                   className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-3 text-[10px] font-black uppercase tracking-widest text-foreground transition-colors hover:border-black"
+                 >
+                   <Navigation size={13} />
+                   Navigate
+                 </button>
+               ) : null}
+             </div>
+           ))}
+         </div>
+       ) : null}
     </div>
   );
 }

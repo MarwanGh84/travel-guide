@@ -20,7 +20,7 @@ import {
   Plus,
   Loader2
 } from "lucide-react";
-import { createTrip, deleteTrip, selectTrip } from "@/app/actions";
+import { createTrip, deleteTrip, deleteTripById, selectTrip } from "@/app/actions";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -59,11 +59,18 @@ type LibraryTrip = {
   };
 };
 
+type PendingDelete = {
+  id: string;
+  name: string;
+  isActive: boolean;
+} | null;
+
 export default function TripsPage() {
   const [step, setStep] = useState(0);
   const [destinationMode, setDestinationMode] = useState<"known" | "recommend">("known");
   const [activeBrief, setActiveBrief] = useState<Brief | null>(null);
   const [library, setLibrary] = useState<LibraryTrip[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
   const [isPending, startTransition] = useTransition();
 
   const fetchState = useCallback(async () => {
@@ -108,13 +115,20 @@ export default function TripsPage() {
     });
   };
 
-  const handleDeleteTrip = () => {
-    if (!confirm("WARNING: This will permanently delete your active trip brief and all associated data.")) return;
+  const confirmDeleteTrip = () => {
+    if (!pendingDelete) return;
     startTransition(async () => {
-      await deleteTrip();
+      if (pendingDelete.isActive) {
+        await deleteTrip();
+      } else {
+        const formData = new FormData();
+        formData.set("tripId", pendingDelete.id);
+        await deleteTripById(formData);
+      }
       await fetchState();
       window.dispatchEvent(new Event("trip-status-refresh"));
       setStep(0);
+      setPendingDelete(null);
     });
   };
 
@@ -159,7 +173,7 @@ export default function TripsPage() {
 
                <div className="mt-6 pt-4 border-t border-border">
                   <button 
-                    onClick={handleDeleteTrip}
+                    onClick={() => setPendingDelete({ id: activeBrief.id, name: activeBrief.name, isActive: true })}
                     disabled={isPending}
                     className="w-full h-10 rounded-md border border-border bg-surface text-[9px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
@@ -184,28 +198,48 @@ export default function TripsPage() {
                </div>
                <div className="space-y-2">
                   {library.map((item) => (
-                    <form key={item.id} action={handleSelectTrip}>
-                       <input type="hidden" name="tripId" value={item.id} />
-                       <button
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "flex items-stretch overflow-hidden rounded-lg border transition-all",
+                        item.id === activeBrief?.id ? "border-black bg-background ring-1 ring-black/5" : "border-border/60 bg-background/50 hover:border-black",
+                        isPending && "opacity-50 grayscale",
+                      )}
+                    >
+                      <form action={handleSelectTrip} className="min-w-0 flex-1">
+                        <input type="hidden" name="tripId" value={item.id} />
+                        <button
                           type="submit"
                           disabled={isPending || item.id === activeBrief?.id}
-                          className={cn(
-                            "w-full rounded-lg border p-4 text-left transition-all group",
-                            item.id === activeBrief?.id ? "bg-background border-black ring-1 ring-black/5" : "bg-background/50 border-border/60 hover:border-black",
-                            isPending && "opacity-50 grayscale"
-                          )}
-                       >
+                          className="group h-full w-full p-4 text-left"
+                        >
                           <div className="flex items-center justify-between">
-                             <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", item.id === activeBrief?.id ? "text-foreground" : "text-muted-2")}>{item.name}</h4>
-                             {item.id !== activeBrief?.id && (
-                               isPending ? <Loader2 size={10} className="animate-spin" /> : <ChevronRight size={12} className="text-muted group-hover:translate-x-1 transition-transform" />
-                             )}
+                            <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", item.id === activeBrief?.id ? "text-foreground" : "text-muted-2")}>{item.name}</h4>
+                            {item.id !== activeBrief?.id && (
+                              isPending ? <Loader2 size={10} className="animate-spin" /> : <ChevronRight size={12} className="text-muted transition-transform group-hover:translate-x-1" />
+                            )}
                           </div>
                           <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-widest text-muted">
-                             {item.destination || 'Planning'} · {item._count.itineraryDays} Days
+                            {item.destination || "Planning"} · {item._count.itineraryDays} Days
                           </p>
-                       </button>
-                    </form>
+                        </button>
+                      </form>
+
+                      {item.id !== activeBrief?.id && (
+                        <div className="flex border-l border-border/70">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            aria-label={`Delete ${item.name}`}
+                            title={`Delete ${item.name}`}
+                            onClick={() => setPendingDelete({ id: item.id, name: item.name, isActive: false })}
+                            className="grid w-11 place-items-center text-muted transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))}
                </div>
             </section>
@@ -355,6 +389,67 @@ export default function TripsPage() {
           </footer>
         </form>
       </main>
+
+      {pendingDelete && (
+        <DeleteTripDialog
+          trip={pendingDelete}
+          busy={isPending}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmDeleteTrip}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeleteTripDialog({
+  trip,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  trip: NonNullable<PendingDelete>;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="delete-trip-title">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-background p-5 shadow-xl">
+        <div className="flex items-start gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-md border border-rose-200 bg-rose-50 text-rose-600">
+            <Trash2 size={16} />
+          </div>
+          <div className="min-w-0">
+            <h2 id="delete-trip-title" className="text-sm font-bold text-foreground">
+              Delete {trip.isActive ? "active trip" : "journey"}?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-2">
+              “{trip.name}” and its itinerary, saved places, bookings, notes, and expenses will be removed permanently.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="h-10 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-rose-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+          >
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            Delete trip
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -26,9 +35,11 @@ import { cn } from "@/lib/utils";
 type InteractiveMapProps = {
   route: MapRoute;
   mapImageBaseUrl: string | null;
+  browserMapApiKey: string | null;
 };
 
 type LayerKey = "recommended" | "restaurants" | "hiddenGems" | "route";
+type MapStyleKey = "roadmap" | "editorial" | "night";
 
 const layerLabels: Record<LayerKey, string> = {
   recommended: "Recommended",
@@ -37,20 +48,49 @@ const layerLabels: Record<LayerKey, string> = {
   route: "Route Line",
 };
 
-export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) {
+export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: InteractiveMapProps) {
   const [selectedPinId, setSelectedPinId] = useState(route.pins[0]?.id ?? "");
   const [zoom, setZoom] = useState(route.zoom);
+  const [center, setCenter] = useState(route.center);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ recommended: true, restaurants: true, hiddenGems: true, route: true });
   const [sidebarTab, setSidebarTab] = useState<"detail" | "list" | "segments">("list");
+  const dragState = useRef<{ pointerId: number; x: number; y: number; center: { lat: number; lng: number } } | null>(null);
 
   const visiblePins = useMemo(() => route.pins.filter((pin) => isPinVisible(pin, layers)), [route.pins, layers]);
   const selectedPin = visiblePins.find((pin) => pin.id === selectedPinId) ?? visiblePins[0] ?? null;
-  const visibleRoute = useMemo(() => ({ ...route, zoom }), [route, zoom]);
-  const mapImageUrl = mapImageBaseUrl ? `${mapImageBaseUrl}&zoom=${zoom}` : null;
+  const visibleRoute = useMemo(() => ({ ...route, center, zoom }), [center, route, zoom]);
+  const mapImageUrl = mapImageBaseUrl && center ? `${mapImageBaseUrl}&zoom=${zoom}&lat=${center.lat}&lng=${center.lng}` : null;
   const positions = useMemo(() => projectPins(visiblePins, visibleRoute), [visiblePins, visibleRoute]);
   const routePositions = useMemo(() => projectPins(route.routePins.filter((pin) => visiblePins.some((visible) => visible.id === pin.id)), visibleRoute), [route, visiblePins, visibleRoute]);
   const isEmpty = route.pins.length === 0;
   const googleMapsRouteUrl = buildGoogleMapsDirectionsUrl(route.routePins);
+
+  function handleWheel(event: ReactWheelEvent<HTMLElement>) {
+    event.preventDefault();
+    setZoom((current) => Math.min(18, Math.max(3, current + (event.deltaY < 0 ? 1 : -1))));
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (!center) return;
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button, a")) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragState.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, center };
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
+    const drag = dragState.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    setCenter(centerAfterDrag(drag.center, zoom, dx, dy));
+  }
+
+  function stopDragging(event: ReactPointerEvent<HTMLElement>) {
+    if (dragState.current?.pointerId !== event.pointerId) return;
+    dragState.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
@@ -205,43 +245,41 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
 
       {/* Main Map Stage */}
       <main className="relative min-h-[420px] flex-1 overflow-hidden bg-zinc-900 lg:min-h-0">
-        <div className="absolute inset-0 z-0">
-          {mapImageUrl ? (
-            <Image src={mapImageUrl} alt="Route Map" fill loading="eager" className="object-cover opacity-60 grayscale-[0.4]" unoptimized />
-          ) : (
-            <div className="absolute inset-0 bg-[#071626] opacity-40" style={{ backgroundImage: "linear-gradient(90deg, rgba(125,211,252,.05) 1px, transparent 1px), linear-gradient(rgba(125,211,252,.05) 1px, transparent 1px)", backgroundSize: "64px 64px" }} />
-          )}
-        </div>
-
-        {/* SVG Route Line */}
-        {layers.route && routePositions.length > 1 && (
-          <svg className="pointer-events-none absolute inset-0 z-10 size-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <polyline points={routePositions.map((item) => `${item.left},${item.top}`).join(" ")} fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" vectorEffect="non-scaling-stroke" className="opacity-80" />
-          </svg>
+        {browserMapApiKey && route.center ? (
+          <GoogleBrowserMap
+            apiKey={browserMapApiKey}
+            route={route}
+            visiblePins={visiblePins}
+            selectedPinId={selectedPinId}
+            layers={layers}
+            onSelectPin={(pinId) => {
+              setSelectedPinId(pinId);
+              setSidebarTab("detail");
+            }}
+          />
+        ) : (
+          <StaticMapFallback
+            route={route}
+            visiblePins={visiblePins}
+            visibleRoute={visibleRoute}
+            selectedPinId={selectedPinId}
+            mapImageUrl={mapImageUrl}
+            positions={positions}
+            routePositions={routePositions}
+            layers={layers}
+            zoom={zoom}
+            setZoom={setZoom}
+            setCenter={setCenter}
+            handleWheel={handleWheel}
+            handlePointerDown={handlePointerDown}
+            handlePointerMove={handlePointerMove}
+            stopDragging={stopDragging}
+            onSelectPin={(pinId) => {
+              setSelectedPinId(pinId);
+              setSidebarTab("detail");
+            }}
+          />
         )}
-
-        {/* Interactive Pins */}
-        {positions.map(({ pin, left, top }, index) => (
-          <button
-            key={pin.id}
-            type="button"
-            onClick={() => { setSelectedPinId(pin.id); setSidebarTab("detail"); }}
-            className={cn(
-              "absolute z-20 grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[10px] font-black shadow-2xl transition-all hover:scale-125 hover:z-30 border-2",
-              selectedPinId === pin.id ? "bg-black border-white text-white scale-110" : "bg-white border-border text-foreground"
-            )}
-            style={{ left: `${left}%`, top: `${top}%` }}
-          >
-            {String.fromCharCode(65 + index)}
-          </button>
-        ))}
-
-        {/* Zoom Controls */}
-        <div className="absolute right-8 bottom-8 z-30 flex flex-col gap-2">
-          <button className="size-10 grid place-items-center rounded-md bg-black text-white shadow-xl hover:bg-zinc-800 transition-all" onClick={() => setZoom((current) => Math.min(18, current + 1))}><Plus size={16} /></button>
-          <button className="size-10 grid place-items-center rounded-md bg-black text-white shadow-xl hover:bg-zinc-800 transition-all" onClick={() => setZoom((current) => Math.max(3, current - 1))}><Minus size={16} /></button>
-          <button className="size-10 grid place-items-center rounded-md bg-background border border-border text-foreground shadow-xl hover:bg-surface transition-all" onClick={() => setZoom(route.zoom)}><RotateCcw size={16} /></button>
-        </div>
 
         {isEmpty && (
            <div className="absolute inset-0 z-40 grid place-items-center bg-black/40 backdrop-blur-sm p-8 text-center">
@@ -260,6 +298,458 @@ export function InteractiveMap({ route, mapImageBaseUrl }: InteractiveMapProps) 
       </main>
     </div>
   );
+}
+
+type StaticMapFallbackProps = {
+  route: MapRoute;
+  visiblePins: RoutePin[];
+  visibleRoute: MapRoute;
+  selectedPinId: string;
+  mapImageUrl: string | null;
+  positions: Array<{ pin: RoutePin; left: number; top: number }>;
+  routePositions: Array<{ pin: RoutePin; left: number; top: number }>;
+  layers: Record<LayerKey, boolean>;
+  zoom: number;
+  setZoom: Dispatch<SetStateAction<number>>;
+  setCenter: Dispatch<SetStateAction<{ lat: number; lng: number } | undefined>>;
+  handleWheel: (event: ReactWheelEvent<HTMLElement>) => void;
+  handlePointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+  handlePointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  stopDragging: (event: ReactPointerEvent<HTMLElement>) => void;
+  onSelectPin: (pinId: string) => void;
+};
+
+function StaticMapFallback({
+  route,
+  selectedPinId,
+  mapImageUrl,
+  positions,
+  routePositions,
+  layers,
+  setZoom,
+  setCenter,
+  handleWheel,
+  handlePointerDown,
+  handlePointerMove,
+  stopDragging,
+  onSelectPin,
+}: StaticMapFallbackProps) {
+  return (
+    <div
+      className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={stopDragging}
+      onPointerCancel={stopDragging}
+    >
+      <div className="absolute inset-0 z-0">
+        {mapImageUrl ? (
+          <Image
+            src={mapImageUrl}
+            alt="Route Map"
+            fill
+            loading="eager"
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
+            className="select-none object-cover opacity-60 grayscale-[0.4]"
+            unoptimized
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[#071626] opacity-40" style={{ backgroundImage: "linear-gradient(90deg, rgba(125,211,252,.05) 1px, transparent 1px), linear-gradient(rgba(125,211,252,.05) 1px, transparent 1px)", backgroundSize: "64px 64px" }} />
+        )}
+      </div>
+
+      {layers.route && routePositions.length > 1 && (
+        <svg className="pointer-events-none absolute inset-0 z-10 size-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polyline points={routePositions.map((item) => `${item.left},${item.top}`).join(" ")} fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" vectorEffect="non-scaling-stroke" className="opacity-80" />
+        </svg>
+      )}
+
+      {positions.map(({ pin, left, top }, index) => (
+        <button
+          key={pin.id}
+          type="button"
+          onClick={() => onSelectPin(pin.id)}
+          className={cn(
+            "absolute z-20 grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-[10px] font-black shadow-2xl transition-all hover:z-30 hover:scale-125",
+            selectedPinId === pin.id ? "scale-110 border-white bg-black text-white" : "border-border bg-white text-foreground",
+          )}
+          style={{ left: `${left}%`, top: `${top}%` }}
+        >
+          {String.fromCharCode(65 + index)}
+        </button>
+      ))}
+
+      <div className="absolute right-8 bottom-8 z-30 flex flex-col gap-2">
+        <button className="grid size-10 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800" onClick={() => setZoom((current) => Math.min(18, current + 1))}><Plus size={16} /></button>
+        <button className="grid size-10 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800" onClick={() => setZoom((current) => Math.max(3, current - 1))}><Minus size={16} /></button>
+        <button
+          className="grid size-10 place-items-center rounded-md border border-border bg-background text-foreground shadow-xl transition-all hover:bg-surface"
+          onClick={() => {
+            setZoom(route.zoom);
+            setCenter(route.center);
+          }}
+        >
+          <RotateCcw size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type GoogleBrowserMapProps = {
+  apiKey: string;
+  route: MapRoute;
+  visiblePins: RoutePin[];
+  selectedPinId: string;
+  layers: Record<LayerKey, boolean>;
+  onSelectPin: (pinId: string) => void;
+};
+
+function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, onSelectPin }: GoogleBrowserMapProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<GoogleMapInstance | null>(null);
+  const markersRef = useRef<Map<string, GoogleMarkerInstance>>(new Map());
+  const polylineRef = useRef<GooglePolylineInstance | null>(null);
+  const infoWindowRef = useRef<GoogleInfoWindowInstance | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>("editorial");
+
+  useEffect(() => {
+    const initialCenter = route.center;
+    if (!initialCenter) return;
+    let cancelled = false;
+    const markers = markersRef.current;
+    loadGoogleMaps(apiKey)
+      .then(() => {
+        if (cancelled || !containerRef.current) return;
+        mapRef.current = new window.google.maps.Map(containerRef.current, {
+          center: initialCenter,
+          zoom: route.zoom,
+          gestureHandling: "greedy",
+          streetViewControl: false,
+          fullscreenControl: false,
+          mapTypeControl: false,
+          clickableIcons: false,
+          styles: googleMapStyles.editorial,
+        });
+        infoWindowRef.current = new window.google.maps.InfoWindow();
+        fitRouteBounds(mapRef.current, route.routePins.length ? route.routePins : visiblePins);
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"));
+
+    return () => {
+      cancelled = true;
+      markers.forEach((marker) => marker.setMap(null));
+      markers.clear();
+      polylineRef.current?.setMap(null);
+      polylineRef.current = null;
+      infoWindowRef.current?.close();
+      infoWindowRef.current = null;
+      mapRef.current = null;
+    };
+  }, [apiKey, route.center, route.routePins, route.zoom, visiblePins]);
+
+  useEffect(() => {
+    if (status !== "ready" || !mapRef.current) return;
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current.clear();
+    visiblePins.forEach((pin, index) => {
+      const marker = new window.google.maps.Marker({
+        map: mapRef.current!,
+        position: { lat: pin.lat, lng: pin.lng },
+        title: pin.label,
+        label: String.fromCharCode(65 + index),
+        zIndex: pin.id === selectedPinId ? 2 : 1,
+        icon: markerIcon(pin.id === selectedPinId),
+      });
+      marker.addListener("click", () => onSelectPin(pin.id));
+      markersRef.current.set(pin.id, marker);
+    });
+  }, [onSelectPin, selectedPinId, status, visiblePins]);
+
+  useEffect(() => {
+    if (status !== "ready" || !mapRef.current) return;
+    const selectedPin = visiblePins.find((pin) => pin.id === selectedPinId);
+    const selectedMarker = selectedPin ? markersRef.current.get(selectedPin.id) : undefined;
+    if (!selectedPin || !selectedMarker || !infoWindowRef.current) return;
+
+    mapRef.current.panTo({ lat: selectedPin.lat, lng: selectedPin.lng });
+    infoWindowRef.current.setContent(infoWindowMarkup(selectedPin));
+    infoWindowRef.current.open({ map: mapRef.current, anchor: selectedMarker });
+  }, [selectedPinId, status, visiblePins]);
+
+  useEffect(() => {
+    if (status !== "ready" || !mapRef.current) return;
+    polylineRef.current?.setMap(null);
+    polylineRef.current = null;
+    if (!layers.route || route.routePins.length < 2) return;
+
+    polylineRef.current = new window.google.maps.Polyline({
+      map: mapRef.current,
+      path: route.routePins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
+      geodesic: true,
+      strokeColor: "#111111",
+      strokeOpacity: 0.9,
+      strokeWeight: 3,
+    });
+  }, [layers.route, route.routePins, status]);
+
+  useEffect(() => {
+    if (status !== "ready" || !mapRef.current) return;
+    mapRef.current.setOptions({ styles: googleMapStyles[mapStyle] });
+  }, [mapStyle, status]);
+
+  function recenterRoute() {
+    if (!mapRef.current) return;
+    fitRouteBounds(mapRef.current, route.routePins.length ? route.routePins : visiblePins);
+  }
+
+  if (status === "error") {
+    return (
+      <div className="absolute inset-0 grid place-items-center bg-background text-center">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Interactive map unavailable</p>
+          <p className="mt-2 text-xs text-muted">Check the browser map key and Maps JavaScript API access.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0">
+      <div ref={containerRef} className="absolute inset-0" />
+      {status === "loading" && <div className="absolute inset-0 animate-pulse bg-zinc-200" />}
+      {status === "ready" && (
+        <>
+          <div className="absolute left-4 top-4 z-10 flex rounded-xl border border-white/70 bg-white/90 p-1 shadow-xl backdrop-blur sm:left-6 sm:top-6">
+            {(Object.keys(mapStyleLabels) as MapStyleKey[]).map((style) => (
+              <button
+                key={style}
+                type="button"
+                onClick={() => setMapStyle(style)}
+                className={cn(
+                  "h-9 rounded-lg px-3 text-[9px] font-black uppercase tracking-widest transition-colors",
+                  mapStyle === style ? "bg-black text-white" : "text-zinc-600 hover:text-black",
+                )}
+              >
+                {mapStyleLabels[style]}
+              </button>
+            ))}
+          </div>
+          <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 sm:bottom-6 sm:right-6">
+          <button
+            type="button"
+            onClick={() => mapRef.current?.setZoom(Math.min(20, (mapRef.current?.getZoom() ?? route.zoom) + 1))}
+            className="grid size-11 place-items-center rounded-lg bg-black text-white shadow-xl transition-all hover:bg-zinc-800"
+            aria-label="Zoom in"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => mapRef.current?.setZoom(Math.max(3, (mapRef.current?.getZoom() ?? route.zoom) - 1))}
+            className="grid size-11 place-items-center rounded-lg bg-black text-white shadow-xl transition-all hover:bg-zinc-800"
+            aria-label="Zoom out"
+          >
+            <Minus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={recenterRoute}
+            className="grid size-11 place-items-center rounded-lg border border-border bg-background text-foreground shadow-xl transition-all hover:bg-surface"
+            aria-label="Recenter route"
+          >
+            <RotateCcw size={16} />
+          </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+let googleMapsPromise: Promise<void> | null = null;
+
+function loadGoogleMaps(apiKey: string) {
+  if (typeof window !== "undefined" && window.google?.maps) return Promise.resolve();
+  if (googleMapsPromise) return googleMapsPromise;
+
+  googleMapsPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-google-maps="true"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Google Maps failed to load.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleMaps = "true";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Google Maps failed to load."));
+    document.head.appendChild(script);
+  });
+
+  return googleMapsPromise;
+}
+
+type GoogleMapInstance = {
+  setCenter(position: { lat: number; lng: number }): void;
+  panTo(position: { lat: number; lng: number }): void;
+  fitBounds(bounds: GoogleLatLngBoundsInstance, padding?: number): void;
+  setZoom(zoom: number): void;
+  getZoom(): number | undefined;
+  setOptions(options: { styles: GoogleMapStyleRule[] | null }): void;
+};
+
+type GoogleMarkerInstance = {
+  setMap(map: GoogleMapInstance | null): void;
+  addListener(eventName: "click", handler: () => void): void;
+};
+
+type GooglePolylineInstance = {
+  setMap(map: GoogleMapInstance | null): void;
+};
+
+type GoogleInfoWindowInstance = {
+  setContent(content: string): void;
+  open(options: { map: GoogleMapInstance; anchor: GoogleMarkerInstance }): void;
+  close(): void;
+};
+
+type GoogleLatLngBoundsInstance = {
+  extend(position: { lat: number; lng: number }): void;
+};
+
+declare global {
+  interface Window {
+    google: {
+      maps: {
+        Map: new (
+          container: HTMLElement,
+          options: {
+            center: { lat: number; lng: number };
+            zoom: number;
+            gestureHandling: "greedy";
+            streetViewControl: boolean;
+            fullscreenControl: boolean;
+            mapTypeControl: boolean;
+            clickableIcons: boolean;
+            styles: GoogleMapStyleRule[] | null;
+          },
+        ) => GoogleMapInstance;
+        Marker: new (options: {
+          map: GoogleMapInstance;
+          position: { lat: number; lng: number };
+          title: string;
+          label: string;
+          zIndex: number;
+          icon: {
+            path: string;
+            fillColor: string;
+            fillOpacity: number;
+            strokeColor: string;
+            strokeWeight: number;
+            scale: number;
+            labelOrigin: { x: number; y: number };
+          };
+        }) => GoogleMarkerInstance;
+        Polyline: new (options: {
+          map: GoogleMapInstance;
+          path: Array<{ lat: number; lng: number }>;
+          geodesic: boolean;
+          strokeColor: string;
+          strokeOpacity: number;
+          strokeWeight: number;
+        }) => GooglePolylineInstance;
+        InfoWindow: new () => GoogleInfoWindowInstance;
+        LatLngBounds: new () => GoogleLatLngBoundsInstance;
+      };
+    };
+  }
+}
+
+type GoogleMapStyleRule = {
+  featureType?: string;
+  elementType?: string;
+  stylers: Array<Record<string, string | number>>;
+};
+
+const mapStyleLabels: Record<MapStyleKey, string> = {
+  roadmap: "Classic",
+  editorial: "Editorial",
+  night: "Night",
+};
+
+const googleMapStyles: Record<MapStyleKey, GoogleMapStyleRule[] | null> = {
+  roadmap: null,
+  editorial: [
+    { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#d8d4ce" }] },
+    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#6b6258" }] },
+    { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f4efe7" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#b8d8e8" }] },
+  ],
+  night: [
+    { elementType: "geometry", stylers: [{ color: "#18181b" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#d4d4d8" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#18181b" }] },
+    { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#52525b" }] },
+    { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#27272a" }] },
+    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#a1a1aa" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#082f49" }] },
+  ],
+};
+
+function fitRouteBounds(map: GoogleMapInstance, pins: RoutePin[]) {
+  if (!pins.length) return;
+  if (pins.length === 1) {
+    map.setCenter({ lat: pins[0].lat, lng: pins[0].lng });
+    map.setZoom(15);
+    return;
+  }
+  const bounds = new window.google.maps.LatLngBounds();
+  pins.forEach((pin) => bounds.extend({ lat: pin.lat, lng: pin.lng }));
+  map.fitBounds(bounds, 72);
+}
+
+function markerIcon(selected: boolean) {
+  return {
+    path: "M12 2C7.58 2 4 5.58 4 10c0 5.25 8 12 8 12s8-6.75 8-12c0-4.42-3.58-8-8-8Z",
+    fillColor: selected ? "#111111" : "#ffffff",
+    fillOpacity: 1,
+    strokeColor: selected ? "#ffffff" : "#111111",
+    strokeWeight: selected ? 2.5 : 2,
+    scale: selected ? 1.45 : 1.25,
+    labelOrigin: { x: 12, y: 10 },
+  };
+}
+
+function infoWindowMarkup(pin: RoutePin) {
+  return `
+    <div style="min-width:180px;padding:4px 2px 2px;color:#111111;font-family:inherit;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(pin.label)}</div>
+      <div style="margin-top:4px;font-size:10px;color:#52525b;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(pin.category)}</div>
+      <div style="margin-top:6px;font-size:10px;color:#71717a;">${escapeHtml(pin.location || "Mapped location")}</div>
+    </div>
+  `;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function PinDetail({ pin }: { pin: RoutePin | null }) {
@@ -357,7 +847,9 @@ function isPinVisible(pin: RoutePin, layers: Record<LayerKey, boolean>) {
 }
 
 function projectPins(pins: RoutePin[], route: MapRoute) {
-  return pins.slice(0, 18).map((pin) => ({ pin, ...projectMercator(pin, route.center, route.zoom) })).filter((item) => item.left >= -5 && item.left <= 105 && item.top >= -5 && item.top <= 105);
+  const center = route.center;
+  if (!center) return [];
+  return pins.slice(0, 18).map((pin) => ({ pin, ...projectMercator(pin, center, route.zoom) })).filter((item) => item.left >= -5 && item.left <= 105 && item.top >= -5 && item.top <= 105);
 }
 
 function projectMercator(pin: RoutePin, center: { lat: number; lng: number }, zoom: number) {
@@ -375,4 +867,19 @@ function projectMercator(pin: RoutePin, center: { lat: number; lng: number }, zo
 function latLngToWorld(lat: number, lng: number) {
   const sin = Math.sin((lat * Math.PI) / 180);
   return { x: (lng + 180) / 360, y: 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI) };
+}
+
+function worldToLatLng(x: number, y: number) {
+  const lng = x * 360 - 180;
+  const latRadians = Math.atan(Math.sinh(Math.PI * (1 - 2 * y)));
+  return { lat: (latRadians * 180) / Math.PI, lng };
+}
+
+function centerAfterDrag(center: { lat: number; lng: number }, zoom: number, dx: number, dy: number) {
+  const scale = 256 * 2 ** zoom;
+  const centerPoint = latLngToWorld(center.lat, center.lng);
+  return worldToLatLng(
+    centerPoint.x - dx / scale,
+    Math.min(0.999999, Math.max(0.000001, centerPoint.y - dy / scale)),
+  );
 }
