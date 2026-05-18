@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Input, Textarea } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 type DocumentNote = {
   id: string;
@@ -227,8 +228,15 @@ function AttachmentPreview({ href }: { href: string }) {
         </div>
       </div>
       {isImage && (
-        <div className="overflow-hidden rounded-lg border border-border bg-background">
-          <img src={href} alt={fileName} className="max-h-[420px] w-full object-contain" />
+        <div className="relative h-[420px] overflow-hidden rounded-lg border border-border bg-background">
+          <Image
+            src={href}
+            alt={fileName}
+            fill
+            unoptimized
+            sizes="(max-width: 768px) 100vw, 640px"
+            className="object-contain"
+          />
         </div>
       )}
       {isPdf && (

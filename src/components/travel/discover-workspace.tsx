@@ -24,10 +24,13 @@ import {
   LucideIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { addPlaceToItinerary, refreshDestinationsFromAi, refreshPlacesFromProvider, removeSelectedPlace, planDestination } from "@/app/actions";
 import { imageForPlace } from "@/lib/travel/media";
 import type { PlaceRecommendation, TripDraft, DestinationRecommendation } from "@/lib/types/travel";
+
+const passthroughImageLoader = ({ src }: { src: string }) => src;
 
 type DiscoverWorkspaceProps = {
   trip: TripDraft | null;
@@ -331,7 +334,14 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                           selectedPlaceId === place.id ? "bg-surface-2 ring-1 ring-inset ring-border" : "hover:bg-surface"
                         )}
                      >
-                        <img src={imageForPlace(place)} alt="" className="size-10 rounded-md object-cover grayscale-[0.5]" />
+                        <Image
+                          loader={passthroughImageLoader}
+                          src={imageForPlace(place)}
+                          alt=""
+                          width={40}
+                          height={40}
+                          className="size-10 rounded-md object-cover grayscale-[0.5]"
+                        />
                         <div className="min-w-0 flex-1">
                            <div className="flex items-center justify-between gap-2">
                               <h4 className={cn("truncate text-xs font-bold", selectedPlaceId === place.id ? "text-foreground" : "text-muted-2")}>
@@ -491,7 +501,14 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
                 className="mx-auto max-w-2xl"
               >
                 <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-sm grayscale-[0.2]">
-                  <img src={imageForPlace(activePlace)} alt="" className="h-full w-full object-cover" />
+                  <Image
+                    loader={passthroughImageLoader}
+                    src={imageForPlace(activePlace)}
+                    alt=""
+                    fill
+                    sizes="(max-width: 768px) 100vw, 672px"
+                    className="object-cover"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                 </div>
 
