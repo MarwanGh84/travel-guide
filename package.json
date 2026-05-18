@@ -11,7 +11,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "node prisma/seed.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:prepare": "cp prisma/dev.db /tmp/travel-guide-e2e.db && DATABASE_URL=\"file:/tmp/travel-guide-e2e.db\" node tests/e2e/seed.mjs",
+    "test:e2e": "npm run build && npm run test:e2e:prepare && DATABASE_URL=\"file:/tmp/travel-guide-e2e.db\" playwright test"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@playwright/test": "^1.55.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

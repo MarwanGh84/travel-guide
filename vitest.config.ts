@@ -5,5 +5,6 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
+    exclude: ["tests/e2e/**", "node_modules/**", "my-frontend-app/**"],
   },
 });
