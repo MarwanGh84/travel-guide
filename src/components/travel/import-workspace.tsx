@@ -41,8 +41,13 @@ export function ImportWorkspace() {
       .catch(() => setStatus({ connected: false, configured: false, message: "Could not read Gmail connection status." }));
   }, []);
 
-  const activeImport = imports.find(i => importKey(i) === selectedId) ?? imports[0];
-  const selectedImports = useMemo(() => imports.filter((item) => selected.has(importKey(item))), [imports, selected]);
+  const importRows = useMemo(() => buildImportRows(imports), [imports]);
+  const activeRow = importRows.find((row) => row.uiKey === selectedId) ?? importRows[0];
+  const activeImport = activeRow?.item;
+  const selectedImports = useMemo(
+    () => importRows.filter((row) => selected.has(row.uiKey)).map((row) => row.item),
+    [importRows, selected],
+  );
 
   async function runImport(makeRequest: () => Promise<Response>) {
     setLoading(true);
@@ -55,9 +60,10 @@ export function ImportWorkspace() {
       return;
     }
     const parsed: ParsedTravelEmail[] = result.data ?? [];
+    const nextRows = buildImportRows(parsed);
     setImports(parsed);
-    setSelected(new Set(parsed.map(importKey)));
-    setSelectedId(importKey(parsed[0]));
+    setSelected(new Set(nextRows.filter((row) => row.item.autoSelect).map((row) => row.uiKey)));
+    setSelectedId(nextRows[0]?.uiKey ?? "");
     setMessage(parsed.length ? `${parsed.length} records ready.` : "No travel records found.");
   }
 
@@ -80,8 +86,7 @@ export function ImportWorkspace() {
     setSelected(new Set());
   }
 
-  function toggle(item: ParsedTravelEmail) {
-    const key = importKey(item);
+  function toggle(key: string) {
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
@@ -157,8 +162,8 @@ export function ImportWorkspace() {
 
            {/* Results List */}
            <div className="divide-y divide-border/50">
-              {imports.map((item) => {
-                const key = importKey(item);
+              {importRows.map(({ item, uiKey }) => {
+                const key = uiKey;
                 const isActive = selectedId === key;
                 const isSelected = selected.has(key);
                 return (
@@ -184,7 +189,19 @@ export function ImportWorkspace() {
                         <h4 className={cn("truncate text-[11px] font-bold uppercase tracking-tight", isActive ? "text-foreground" : "text-muted-2")}>
                            {item.title}
                         </h4>
-                        <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted mt-0.5">{item.provider} · {item.bookingType}</p>
+                        <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted mt-0.5">
+                          {item.provider} · {item.bookingType}
+                        </p>
+                        <p className={cn(
+                          "mt-1 truncate text-[9px] font-black uppercase tracking-widest",
+                          item.confidenceLabel === "high-confidence"
+                            ? "text-emerald-600"
+                            : item.confidenceLabel === "possible"
+                              ? "text-amber-600"
+                              : "text-rose-600",
+                        )}>
+                          {confidenceLabel(item.confidenceLabel)}
+                        </p>
                      </div>
                   </button>
                 );
@@ -229,14 +246,26 @@ export function ImportWorkspace() {
                               {activeImport.bookingType}
                            </span>
                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{activeImport.provider} SOURCE</span>
+                           <span className={cn(
+                             "rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border",
+                             activeImport.confidenceLabel === "high-confidence"
+                               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                               : activeImport.confidenceLabel === "possible"
+                                 ? "border-amber-200 bg-amber-50 text-amber-700"
+                                 : "border-rose-200 bg-rose-50 text-rose-700",
+                           )}>
+                             {confidenceLabel(activeImport.confidenceLabel)}
+                           </span>
                         </div>
                         <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter text-foreground leading-none">{activeImport.title}</h1>
                      </div>
                      <button 
-                        onClick={() => toggle(activeImport)}
+                        onClick={() => toggle(activeRow.uiKey)}
+                        disabled={activeImport.confidenceLabel === "rejected"}
                         className={cn(
                           "grid size-12 shrink-0 place-items-center rounded-xl border transition-all shadow-sm",
-                          selected.has(selectedId) ? "bg-black text-white border-black" : "bg-white text-muted border-border hover:border-black hover:text-black"
+                          selected.has(selectedId) ? "bg-black text-white border-black" : "bg-white text-muted border-border hover:border-black hover:text-black",
+                          activeImport.confidenceLabel === "rejected" && "cursor-not-allowed opacity-40 hover:border-border hover:text-muted",
                         )}
                      >
                         {selected.has(selectedId) ? <Check size={20} strokeWidth={3} /> : <PlusCircle size={20} strokeWidth={3} />}
@@ -275,6 +304,11 @@ export function ImportWorkspace() {
                            <span className="text-[9px] font-black text-emerald-600">{activeImport.confidenceScore}% CONFIDENCE</span>
                         </div>
                      </div>
+                     {activeImport.confidenceLabel === "rejected" && activeImport.rejectionReasons.length > 0 && (
+                       <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-rose-600">
+                         Ignored: {activeImport.rejectionReasons.join(", ")}
+                       </p>
+                     )}
                      <div className="rounded-xl border border-border bg-surface p-8 shadow-inner">
                         <p className="text-sm font-medium leading-relaxed text-muted-2 italic">
                            &quot;{activeImport.rawSnippet}...&quot;
@@ -315,4 +349,30 @@ function ExtractedField({ label, value }: { label: string; value: string }) {
 
 function importKey(item: ParsedTravelEmail) {
   return `${item.provider}-${item.bookingType}-${item.title}-${item.confirmationNumber ?? ""}-${item.importFingerprint}`;
+}
+
+function buildImportRows(items: ParsedTravelEmail[]) {
+  const occurrences = new Map<string, number>();
+
+  return items.map((item) => {
+    const baseKey = importKey(item);
+    const occurrence = occurrences.get(baseKey) ?? 0;
+    occurrences.set(baseKey, occurrence + 1);
+
+    return {
+      item,
+      uiKey: `${baseKey}::${occurrence}`,
+    };
+  });
+}
+
+function confidenceLabel(value: ParsedTravelEmail["confidenceLabel"]) {
+  switch (value) {
+    case "high-confidence":
+      return "High confidence travel booking";
+    case "possible":
+      return "Possible travel-related";
+    case "rejected":
+      return "Rejected / ignored";
+  }
 }

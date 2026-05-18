@@ -14,9 +14,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Invalid import data format." }, { status: 400 });
   }
 
-  const selected = validation.data.imports as unknown as ParsedTravelEmail[];
+  const selected = (validation.data.imports as unknown as ParsedTravelEmail[]).filter((item) => item.confidenceLabel !== "rejected");
   if (!selected.length) {
-    return NextResponse.json({ ok: false, message: "No valid parsed bookings selected." }, { status: 400 });
+    return NextResponse.json({ ok: false, message: "No save-eligible travel imports selected." }, { status: 400 });
   }
 
   let imported = 0;

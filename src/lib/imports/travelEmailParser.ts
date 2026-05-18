@@ -15,6 +15,9 @@ export type ParsedTravelEmail = {
   sourceFrom?: string;
   importFingerprint: string;
   confidenceScore: number;
+  confidenceLabel: "high-confidence" | "possible" | "rejected";
+  autoSelect: boolean;
+  rejectionReasons: string[];
   rawSnippet: string;
 };
 
@@ -40,6 +43,34 @@ const datePatterns = [
   /(?:check-?out|return|to)[ \t:]+([A-Z][a-z]{2,9}\s+\d{1,2},?\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/i,
 ];
 
+const bookingKeywordPatterns = [
+  /\bbooking confirmation\b/i,
+  /\breservation confirmation\b/i,
+  /\bitinerary\b/i,
+  /\bcheck-?in\b/i,
+  /\bcheck-?out\b/i,
+  /\bflight confirmation\b/i,
+  /\bboarding pass\b/i,
+  /\bguest\b/i,
+];
+
+const negativeSignalPatterns = [
+  { pattern: /\btransaction confirmation\b/i, reason: "bank transaction" },
+  { pattern: /\bcard ending\b/i, reason: "card payment" },
+  { pattern: /\bpurchase of\b/i, reason: "card payment" },
+  { pattern: /\bavailable limit\b/i, reason: "bank transaction" },
+  { pattern: /\bone[- ]time password\b|\botp\b|\bverification code\b/i, reason: "security alert" },
+  { pattern: /\bsecurity alert\b|\blogin alert\b/i, reason: "security alert" },
+];
+
+const marketingPatterns = [
+  /\bunsubscribe\b/i,
+  /\bnewsletter\b/i,
+  /\bsale\b/i,
+  /\bdeal\b/i,
+  /\boffer expires\b/i,
+];
+
 export function parseTravelEmail(email: RawEmailForImport): ParsedTravelEmail {
   const text = normalizeText(`${email.subject ?? ""}\n${email.body}`);
   const provider = detectProvider(text, email.from);
@@ -53,6 +84,16 @@ export function parseTravelEmail(email: RawEmailForImport): ParsedTravelEmail {
   const guestName = firstMatch(text, [/(?:guest|traveler|passenger)[ \t:]+([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){0,3})/i]);
   const cancellationNotes = extractCancellation(text);
   const importFingerprint = buildImportFingerprint({ email, provider, bookingType, title, confirmationNumber, dates });
+  const scoring = scoreParse({
+    text,
+    provider,
+    bookingType,
+    title,
+    confirmationNumber,
+    dates,
+    address,
+    link,
+  });
 
   return {
     sourceId: email.id,
@@ -70,7 +111,10 @@ export function parseTravelEmail(email: RawEmailForImport): ParsedTravelEmail {
     sourceSubject: email.subject,
     sourceFrom: email.from,
     importFingerprint,
-    confidenceScore: scoreParse({ provider, title, confirmationNumber, dates, address, link }),
+    confidenceScore: scoring.score,
+    confidenceLabel: scoring.label,
+    autoSelect: scoring.label === "high-confidence",
+    rejectionReasons: scoring.rejectionReasons,
     rawSnippet: text.slice(0, 900),
   };
 }
@@ -156,21 +200,73 @@ function firstMatch(text: string, patterns: RegExp[]) {
 }
 
 function scoreParse(value: {
+  text: string;
   provider: ParsedTravelEmail["provider"];
+  bookingType: ParsedTravelEmail["bookingType"];
   title: string;
   confirmationNumber?: string;
   dates: string[];
   address?: string;
   link?: string;
-}) {
-  let score = 30;
-  if (value.provider !== "Unknown") score += 20;
-  if (value.title && !/booking$/i.test(value.title)) score += 15;
-  if (value.confirmationNumber) score += 15;
-  if (value.dates.length) score += 10;
-  if (value.address) score += 5;
-  if (value.link) score += 5;
-  return Math.min(95, score);
+}): {
+  score: number;
+  label: ParsedTravelEmail["confidenceLabel"];
+  rejectionReasons: string[];
+} {
+  let score = 0;
+  let strongSignals = 0;
+  const rejectionReasons = negativeSignalPatterns
+    .filter(({ pattern }) => pattern.test(value.text))
+    .map(({ reason }) => reason);
+
+  if (value.provider !== "Unknown") {
+    score += 35;
+    strongSignals++;
+  }
+  if (bookingKeywordPatterns.some((pattern) => pattern.test(value.text))) {
+    score += 20;
+    strongSignals++;
+  }
+  if (value.bookingType !== "Travel") {
+    score += 15;
+  }
+  if (value.title && !/booking$/i.test(value.title)) score += 10;
+  if (value.confirmationNumber) {
+    score += 20;
+    strongSignals++;
+  }
+  if (value.dates.length >= 2) {
+    score += 15;
+    strongSignals++;
+  } else if (value.dates.length === 1) {
+    score += 8;
+  }
+  if (value.address) score += 8;
+  if (value.link) score += 4;
+
+  if (marketingPatterns.some((pattern) => pattern.test(value.text)) && strongSignals < 2) {
+    score -= 25;
+    rejectionReasons.push("marketing-only email");
+  }
+  if (/\breceipt\b|\binvoice\b/i.test(value.text) && strongSignals < 2) {
+    score -= 20;
+    rejectionReasons.push("receipt without travel context");
+  }
+  if (rejectionReasons.length) score -= 60;
+
+  const normalizedScore = Math.max(0, Math.min(100, score));
+  const label: ParsedTravelEmail["confidenceLabel"] =
+    rejectionReasons.length > 0 || normalizedScore < 45 || strongSignals === 0
+      ? "rejected"
+      : normalizedScore >= 70 && strongSignals >= 2
+        ? "high-confidence"
+        : "possible";
+
+  return {
+    score: normalizedScore,
+    label,
+    rejectionReasons: [...new Set(rejectionReasons)],
+  };
 }
 
 function normalizeText(value: string) {
@@ -229,6 +325,8 @@ function toIsoDate(value: string) {
 }
 
 function monthNumber(month: string) {
-  const index = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"].indexOf(month.toLowerCase());
+  const normalized = month.toLowerCase();
+  const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  const index = monthNames.findIndex((value) => value === normalized || value.startsWith(normalized));
   return index >= 0 ? String(index + 1).padStart(2, "0") : undefined;
 }

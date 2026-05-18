@@ -65,6 +65,9 @@ export const ParsedTravelEmailSchema = z.object({
   sourceFrom: z.string().optional(),
   importFingerprint: z.string(),
   confidenceScore: z.number(),
+  confidenceLabel: z.enum(["high-confidence", "possible", "rejected"]),
+  autoSelect: z.boolean(),
+  rejectionReasons: z.array(z.string()),
   rawSnippet: z.string(),
 });
 
