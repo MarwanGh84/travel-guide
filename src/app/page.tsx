@@ -3,10 +3,18 @@ import Link from "next/link";
 import { 
   ChevronRight, 
   Sparkles, 
-  Activity,
-  ArrowRight
+  Activity, 
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  MapPin,
+  Calendar,
+  Plane,
+  CreditCard
 } from "lucide-react";
 import { getWeatherSummary } from "@/lib/api/weatherService";
+import { getExchangeRate } from "@/lib/api/currencyService";
 import {
   getPrimaryTrip,
   toItineraryDays,
@@ -26,6 +34,10 @@ export default async function Home() {
   const weather = await getWeatherSummary([trip?.destination, trip?.destinationCountry].filter(Boolean).join(", "));
   const actual = dbTrip?.budgetCategories.reduce((sum, item) => sum + item.actualAmount, 0) ?? 0;
   const remaining = (trip?.budget ?? 0) - actual;
+  
+  const exchangeRate = dbTrip?.currency && dbTrip.currency !== "USD" 
+    ? await getExchangeRate("USD", dbTrip.currency)
+    : null;
 
   if (!trip) {
     return (
@@ -48,31 +60,91 @@ export default async function Home() {
     );
   }
 
+  // Calculate Planning Progress
+  const hasSavedPlaces = selectedPlaces.length > 0;
+  const hasItinerary = days.length > 0;
+  const isApproved = !!dbTrip?.itineraryApprovedAt;
+  const hasStays = dbTrip?.bookings.some(b => b.type.toLowerCase().includes("stay") || b.type.toLowerCase().includes("hotel")) ?? false;
+  const hasBookings = (dbTrip?.bookings.length ?? 0) > 0;
+
+  const steps = [
+    { label: "Brief", status: "done", href: "/trips" },
+    { label: "Discover", status: hasSavedPlaces ? "done" : "current", href: "/discover" },
+    { label: "Saved Places", status: hasSavedPlaces ? "done" : (hasSavedPlaces ? "done" : "current"), href: "/discover" },
+    { label: "Itinerary", status: isApproved ? "done" : (hasItinerary ? "done" : (hasSavedPlaces ? "current" : "pending")), href: "/itinerary" },
+    { label: "Approved", status: isApproved ? "done" : (hasItinerary ? "current" : "pending"), href: "/itinerary" },
+    { label: "Stays", status: hasStays ? "done" : (isApproved ? "current" : "pending"), href: "/stays" },
+    { label: "Bookings", status: hasBookings ? "done" : (hasStays ? "current" : "pending"), href: "/bookings" },
+    { label: "Travel Ready", status: hasBookings ? "done" : "pending", href: "/today" },
+  ];
+
+  const nextStep = steps.find(s => s.status === "current") || steps.find(s => s.status === "pending") || steps[steps.length - 1];
+
+  const warnings = [
+    !hasSavedPlaces && { id: "no-places", label: "No saved places yet", href: "/discover" },
+    !isApproved && hasItinerary && { id: "not-approved", label: "Itinerary needs approval", href: "/itinerary" },
+    !hasItinerary && { id: "no-itinerary", label: "Itinerary not built", href: "/itinerary" },
+    !hasBookings && { id: "no-bookings", label: "No bookings added", href: "/bookings" },
+    weather.summary.toLowerCase().includes("unavailable") && { id: "weather", label: "Weather intel limited" },
+    exchangeRate?.source.isMock && { id: "currency", label: "Currency data fallback" },
+  ].filter((w): w is { id: string, label: string, href?: string } => !!w);
+
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-background p-8">
+    <div className="flex h-full w-full flex-col overflow-y-auto bg-background p-8">
       {/* 1. Header Command Area */}
-      <header className="mb-10 flex items-end justify-between">
+      <header className="mb-6 flex items-end justify-between">
         <div>
            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted">
               <Activity size={10} className="text-black" />
               Active Trip Intelligence
            </div>
-           <h1 className="mt-2 text-5xl font-black tracking-tighter uppercase">{trip.destination ?? trip.name}</h1>
+           <h1 className="mt-2 text-5xl font-black tracking-tighter uppercase leading-none">{trip.destination ?? trip.name}</h1>
            <div className="mt-4 flex items-center gap-6 text-xs font-bold text-muted">
-              <span>{trip.startDate} — {trip.endDate}</span>
+              <span className="flex items-center gap-2"><Calendar size={14} /> {trip.startDate} — {trip.endDate}</span>
               <div className="h-4 w-px bg-border" />
-              <span>{days.length} DAYS PLANNED</span>
+              <span className="flex items-center gap-2"><MapPin size={14} /> {trip.destinationCountry}</span>
               <div className="h-4 w-px bg-border" />
-              <span className="text-foreground">{formatCurrency(trip.budget)} TOTAL POOL</span>
+              <span className="flex items-center gap-2"><Sparkles size={14} /> {selectedPlaces.length} SAVED</span>
+              <div className="h-4 w-px bg-border" />
+              <span className="flex items-center gap-2"><Plane size={14} /> {dbTrip?.bookings.length ?? 0} BOOKINGS</span>
+              <div className="h-4 w-px bg-border" />
+              <span className="text-foreground flex items-center gap-2"><CreditCard size={14} /> {formatCurrency(trip.budget)} TOTAL POOL</span>
            </div>
         </div>
         
-        <Link href="/itinerary">
+        <Link href={nextStep.href}>
           <button className="flex h-12 items-center gap-3 rounded-lg bg-black px-6 text-xs font-bold uppercase tracking-[0.1em] text-white shadow-xl hover:translate-y-[-2px] transition-all">
-            Launch Workspace <ArrowRight size={14} />
+            Continue Planning <ArrowRight size={14} />
           </button>
         </Link>
       </header>
+
+      {/* Trip Flow Progress Strip */}
+      <div className="mb-10 flex items-center justify-between rounded-xl border border-border bg-surface p-4 shadow-sm">
+        {steps.map((step, i) => (
+          <div key={step.label} className="flex flex-1 items-center last:flex-none">
+            <Link href={step.href} className="group flex flex-col items-center gap-2">
+              <div className={`flex size-8 items-center justify-center rounded-full border-2 transition-all ${
+                step.status === "done" ? "bg-black border-black text-white" :
+                step.status === "current" ? "border-black bg-white text-black animate-pulse" :
+                "border-border bg-background text-muted"
+              }`}>
+                {step.status === "done" ? <CheckCircle2 size={16} /> : 
+                 step.status === "current" ? <Clock size={16} /> : 
+                 <span className="text-[10px] font-black">{i + 1}</span>}
+              </div>
+              <span className={`text-[9px] font-black uppercase tracking-widest ${
+                step.status === "done" ? "text-black" :
+                step.status === "current" ? "text-black" :
+                "text-muted"
+              }`}>{step.label}</span>
+            </Link>
+            {i < steps.length - 1 && (
+              <div className={`mx-4 h-px flex-1 ${step.status === "done" ? "bg-black" : "bg-border"}`} />
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* 2. High-Density Grid */}
       <main className="flex-1 min-h-0">
@@ -95,7 +167,7 @@ export default async function Home() {
           </section>
 
           {/* Daily Digest - High Density List */}
-          <section className="col-span-5 row-span-4 flex flex-col rounded-2xl border border-border bg-surface overflow-hidden">
+          <section className="col-span-5 row-span-3 flex flex-col rounded-2xl border border-border bg-surface overflow-hidden">
              <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-5">
                 <span className="text-[10px] font-black uppercase tracking-widest">Upcoming Timeline</span>
                 <Link href="/itinerary" className="text-[10px] font-bold text-muted hover:text-black">VIEW ALL</Link>
@@ -113,6 +185,34 @@ export default async function Home() {
                      <ChevronRight size={12} className="text-border group-hover:text-black transition-colors" />
                   </div>
                 ))}
+             </div>
+          </section>
+
+          {/* Needs Attention Panel */}
+          <section className="col-span-5 row-span-1 flex flex-col rounded-2xl border border-border bg-surface-2 overflow-hidden">
+             <div className="flex h-8 shrink-0 items-center border-b border-border bg-background/50 px-4">
+                <span className="text-[8px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+                   <AlertCircle size={10} className="text-black" />
+                   Needs Attention
+                </span>
+             </div>
+             <div className="flex-1 p-3 flex gap-2 overflow-x-auto no-scrollbar">
+                {warnings.length > 0 ? warnings.map((warning) => (
+                  <div key={warning.id} className="flex h-full min-w-[140px] items-center gap-2 rounded-lg border border-border bg-background p-2 shadow-sm">
+                     <AlertCircle size={12} className="text-black shrink-0" />
+                     <div className="min-w-0">
+                        <p className="truncate text-[9px] font-bold uppercase tracking-tight">{warning.label}</p>
+                        {warning.href && (
+                          <Link href={warning.href} className="text-[8px] font-black text-muted hover:text-black uppercase">Fix Now</Link>
+                        )}
+                     </div>
+                  </div>
+                )) : (
+                  <div className="flex w-full items-center justify-center gap-2 text-muted">
+                     <CheckCircle2 size={12} className="text-green-600" />
+                     <span className="text-[9px] font-black uppercase tracking-widest">System Nominal</span>
+                  </div>
+                )}
              </div>
           </section>
 
