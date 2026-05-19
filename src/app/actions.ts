@@ -21,6 +21,11 @@ import type { NormalizedPlace } from "@/lib/types/sources";
 
 import { aggregateIntelligence } from "@/lib/api/placeSources/sourceAggregator";
 import { getPlacesForTrip } from "@/lib/api/placesService";
+import {
+  extractDriveFolderId,
+  getDriveFolderMetadata,
+  syncTripMemoryFolder,
+} from "@/lib/api/googleDriveService";
 
 const revalidateAll = () => {
   ["/", "/trips", "/discover", "/itinerary", "/map", "/stays", "/currency", "/budget", "/bookings", "/imports", "/documents", "/today", "/memories", "/profile"].forEach((path) => revalidatePath(path));
@@ -372,6 +377,77 @@ export async function addMemory(formData: FormData) {
     },
   });
   revalidatePath("/memories");
+}
+
+export async function connectMemoryFolder(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const input = formString(formData, "folderUrlOrId");
+  const folderId = extractDriveFolderId(input);
+  if (!trip || !folderId) redirect("/memories?drive=invalid-folder");
+
+  try {
+    const folder = await getDriveFolderMetadata(folderId);
+    const existing = await prisma.tripMemorySource.findFirst({
+      where: { tripId: trip.id, provider: "google-drive", folderId },
+      select: { id: true },
+    });
+    const sourceData = {
+      folderName: folder.name ?? "Google Drive folder",
+      folderUrl: folder.webViewLink ?? `https://drive.google.com/drive/folders/${folderId}`,
+    };
+    if (existing) {
+      await prisma.tripMemorySource.update({
+        where: { id: existing.id },
+        data: sourceData,
+      });
+    } else {
+      await prisma.tripMemorySource.create({
+        data: {
+          tripId: trip.id,
+          provider: "google-drive",
+          folderId,
+          ...sourceData,
+        },
+      });
+    }
+    await syncTripMemoryFolder(trip.id, folderId);
+    revalidatePath("/memories");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("required scope")) redirect("/memories?drive=reconnect-required");
+    redirect("/memories?drive=connect-failed");
+  }
+  redirect("/memories?drive=connected");
+}
+
+export async function syncMemoryFolder(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const sourceId = formString(formData, "sourceId");
+  const source = trip?.memorySources.find((item) => item.provider === "google-drive" && item.id === sourceId);
+  if (!trip || !source) redirect("/memories?drive=no-folder");
+
+  try {
+    await syncTripMemoryFolder(trip.id, source.folderId);
+    revalidatePath("/memories");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("required scope")) redirect("/memories?drive=reconnect-required");
+    redirect("/memories?drive=sync-failed");
+  }
+  redirect("/memories?drive=synced");
+}
+
+export async function disconnectMemoryFolder(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const sourceId = formString(formData, "sourceId");
+  const source = trip?.memorySources.find((item) => item.provider === "google-drive" && item.id === sourceId);
+  if (!trip || !source) redirect("/memories");
+  await prisma.$transaction([
+    prisma.tripMemorySource.deleteMany({ where: { id: source.id, tripId: trip.id, provider: "google-drive" } }),
+    prisma.memoryAsset.deleteMany({ where: { tripId: trip.id, provider: "google-drive", sourceFolderId: source.folderId } }),
+  ]);
+  revalidatePath("/memories");
+  redirect("/memories?drive=disconnected");
 }
 
 async function saveUploadedFile(value: FormDataEntryValue | null) {

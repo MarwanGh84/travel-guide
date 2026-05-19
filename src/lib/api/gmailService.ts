@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import { getOrCreateUser } from "@/lib/db/travel";
 import type { RawEmailForImport } from "@/lib/imports/travelEmailParser";
 
-const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email";
+const DRIVE_READ_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+const GMAIL_SCOPE = `https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email ${DRIVE_READ_SCOPE}`;
 const REQUIRED_GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const DEFAULT_SEARCH_QUERY = "newer_than:2y (booking.com OR expedia.com OR 'booking.com' OR 'expedia')";
 const DEFAULT_REDIRECT_URI = "http://localhost:3000/api/gmail/callback";
@@ -160,14 +161,14 @@ export async function searchTravelEmailsFromGmail(options: { query?: string; max
   }));
 }
 
-async function getUsableGmailAccessToken() {
+export async function getUsableGoogleAccessToken(requiredScope = REQUIRED_GMAIL_SCOPE) {
   const user = await getOrCreateUser();
   const account = await prisma.connectedAccount.findUnique({
     where: { userId_provider: { userId: user.id, provider: "gmail" } },
   });
   if (!account) throw new Error("Gmail is not connected.");
-  if (!account.scope?.split(/\s+/).includes(REQUIRED_GMAIL_SCOPE)) {
-    throw new Error("Gmail is connected without the required read-only Gmail scope. Reconnect after adding the Gmail readonly scope in Google Cloud.");
+  if (!account.scope?.split(/\s+/).includes(requiredScope)) {
+    throw new Error(`Google account is connected without the required scope: ${requiredScope}. Reconnect Google.`);
   }
   if (!account.expiresAt || account.expiresAt.getTime() > Date.now() + 60_000) return account.accessToken;
   if (!account.refreshToken) throw new Error("Gmail access expired. Reconnect Gmail.");
@@ -195,6 +196,16 @@ async function getUsableGmailAccessToken() {
   });
   return token.access_token as string;
 }
+
+async function getUsableGmailAccessToken() {
+  return getUsableGoogleAccessToken(REQUIRED_GMAIL_SCOPE);
+}
+
+export function hasGoogleScope(scope: string, grantedScopes?: string | null) {
+  return Boolean(grantedScopes?.split(/\s+/).includes(scope));
+}
+
+export { DRIVE_READ_SCOPE };
 
 async function gmailFetch<T>(url: string, token: string): Promise<T> {
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });

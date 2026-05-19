@@ -14,6 +14,8 @@ const primaryTripInclude = Prisma.validator<Prisma.TripInclude>()({
   bookings: true,
   documentNotes: true,
   memories: true,
+  memorySources: true,
+  memoryAssets: true,
   destinationIntel: true,
 });
 
@@ -80,6 +82,8 @@ export async function getPrimaryTrip(): Promise<PrimaryTrip | null> {
     bookings: [...trip.bookings].sort((a, b) => (a.startAt?.getTime() ?? 0) - (b.startAt?.getTime() ?? 0)),
     documentNotes: [...trip.documentNotes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
     memories: [...trip.memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    memorySources: [...(trip.memorySources ?? [])].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
+    memoryAssets: [...(trip.memoryAssets ?? [])].sort((a, b) => (b.modifiedTime?.getTime() ?? b.createdAt.getTime()) - (a.modifiedTime?.getTime() ?? a.createdAt.getTime())),
   };
 }
 
