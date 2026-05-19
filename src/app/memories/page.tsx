@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function MemoriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ drive?: string }>;
+  searchParams: Promise<{ drive?: string; error?: string }>;
 }) {
   const trip = await getPrimaryTrip();
   const user = await getOrCreateUser();
@@ -36,6 +36,7 @@ export default async function MemoriesPage({
         configured: google.configured,
         hasDriveScope: hasGoogleScope(DRIVE_READ_SCOPE, await getGoogleScope(user.id)),
         status: params.drive,
+        errorMessage: params.error,
       }}
     />
   );

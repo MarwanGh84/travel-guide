@@ -416,10 +416,10 @@ export async function connectMemoryFolder(formData: FormData) {
     await syncGlobalMemoryFolder(user.id, folderId);
     revalidatePath("/memories");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
+    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Memory folder connection failed:", message);
     if (message.includes("required scope")) redirect("/memories?drive=reconnect-required");
-    redirect("/memories?drive=connect-failed");
+    redirect(`/memories?drive=connect-failed&error=${encodeURIComponent(message)}`);
   }
   redirect("/memories?drive=connected");
 }
@@ -437,10 +437,10 @@ export async function syncMemoryFolder(formData: FormData) {
     await syncGlobalMemoryFolder(user.id, source.folderId);
     revalidatePath("/memories");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
+    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Memory folder sync failed:", message);
     if (message.includes("required scope")) redirect("/memories?drive=reconnect-required");
-    redirect("/memories?drive=sync-failed");
+    redirect(`/memories?drive=sync-failed&error=${encodeURIComponent(message)}`);
   }
   redirect("/memories?drive=synced");
 }

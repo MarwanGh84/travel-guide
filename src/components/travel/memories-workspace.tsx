@@ -54,6 +54,7 @@ type MemoriesWorkspaceProps = {
     configured: boolean;
     hasDriveScope: boolean;
     status?: string;
+    errorMessage?: string;
   };
 };
 
@@ -205,10 +206,9 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
 
           {driveState.status && (
             <div className="mt-4 rounded-md border border-border bg-background px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-              {driveStatusMessage(driveState.status)}
+              {driveStatusMessage(driveState.status, driveState.errorMessage)}
             </div>
           )}
-
           {!driveState.connected && (
             <div className="mt-5 rounded-lg border border-border bg-background p-4 text-sm text-muted-2">
               Connect Google from Imports before linking a Drive folder.
@@ -501,7 +501,7 @@ function formatDriveDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function driveStatusMessage(status: string) {
+function driveStatusMessage(status: string, errorMessage?: string) {
   switch (status) {
     case "connected":
       return "Drive folder linked and synced.";
@@ -514,9 +514,9 @@ function driveStatusMessage(status: string) {
     case "invalid-folder":
       return "Use a valid Google Drive folder URL or folder ID.";
     case "connect-failed":
-      return "Could not link this Drive folder.";
+      return errorMessage ? `Link failed: ${errorMessage}` : "Could not link this Drive folder.";
     case "sync-failed":
-      return "Could not refresh Drive folder metadata.";
+      return errorMessage ? `Sync failed: ${errorMessage}` : "Could not refresh Drive folder metadata.";
     default:
       return status;
   }
