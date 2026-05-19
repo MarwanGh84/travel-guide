@@ -31,11 +31,11 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
       {/* 1. Sidebar - Zone Selection */}
-      <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface p-6 lg:w-[350px] lg:border-b-0 lg:border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
-        <div className="flex flex-col h-full gap-8 overflow-y-auto pr-1 scrollbar-hide">
+      <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface p-4 sm:p-6 lg:w-[350px] lg:border-b-0 lg:border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 overflow-y-auto lg:overflow-hidden lg:h-full">
+        <div className="flex flex-col gap-6 sm:gap-8 pr-1 lg:h-full lg:overflow-y-auto scrollbar-hide">
           <section>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Tactical Plan</span>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground uppercase">Stay Strategy</h1>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-foreground uppercase">Stay Strategy</h1>
             <p className="mt-4 text-[11px] font-bold leading-relaxed text-muted-foreground uppercase tracking-wide">
               {strategy}
             </p>
@@ -48,13 +48,13 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                 <span className="text-[10px] font-black uppercase tracking-widest text-foreground">Stay Zones</span>
                 <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">{zones.length} AREAS</span>
              </div>
-             <div className="space-y-2">
+             <div className="flex gap-3 overflow-x-auto lg:flex-col lg:overflow-x-visible pb-2 lg:pb-0 no-scrollbar">
                 {zones.map((zone) => (
                   <button
                     key={zone.id}
                     onClick={() => setSelectedZoneId(zone.id)}
                     className={cn(
-                      "w-full rounded-xl border p-4 text-left transition-all group",
+                      "min-w-[240px] shrink-0 rounded-xl border p-4 text-left transition-all group lg:min-w-0 lg:shrink",
                       selectedZoneId === zone.id 
                         ? "bg-background border-black shadow-md ring-1 ring-black/5" 
                         : "bg-background/50 border-border/60 hover:border-black"
@@ -82,7 +82,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
       </aside>
 
       {/* 2. Main Detail & Inventory Stage */}
-      <main className="flex-1 overflow-y-auto bg-background p-8 lg:p-16 xl:p-24 scrollbar-hide">
+      <main className="flex-1 overflow-y-auto bg-background p-6 sm:p-12 lg:p-16 xl:p-24 scrollbar-hide">
         <AnimatePresence mode="wait">
           {activeZone ? (
             <motion.div
@@ -93,24 +93,24 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
               transition={{ duration: 0.2 }}
               className="mx-auto max-w-4xl"
             >
-               <header className="mb-12 border-b border-border pb-12">
-                  <div className="flex flex-wrap items-center gap-4 mb-6">
-                     <span className="rounded-full bg-surface-2 px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-border text-muted-foreground">
+               <header className="mb-8 sm:mb-12 border-b border-border pb-8 sm:pb-12">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                     <span className="rounded-full bg-surface-2 px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-border text-muted-foreground whitespace-nowrap">
                         {activeZone.budgetFit} Range
                      </span>
-                     <span className="rounded-full bg-surface-2 px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-border text-muted-foreground">
+                     <span className="rounded-full bg-surface-2 px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-border text-muted-foreground whitespace-nowrap">
                        {activeZone.destination} Sector
                      </span>
                   </div>
-                  <h2 className="text-4xl lg:text-7xl font-black uppercase tracking-tighter text-foreground leading-none">{activeZone.areaName}</h2>
-                  <p className="mt-8 text-xl font-medium leading-relaxed text-muted-foreground italic tracking-tight">&quot;{activeZone.reason}&quot;</p>
+                  <h2 className="text-3xl sm:text-5xl lg:text-7xl font-black uppercase tracking-tighter text-foreground leading-none">{activeZone.areaName}</h2>
+                  <p className="mt-6 sm:mt-8 text-lg sm:text-xl font-medium leading-relaxed text-muted-foreground italic tracking-tight">&quot;{activeZone.reason}&quot;</p>
                   
-                  <div className="mt-10 flex flex-wrap gap-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                     <span className="flex items-center gap-2"><MapPin size={14} className="text-black" /> {typeof activeZone.averageDistanceKm === "number" ? `${activeZone.averageDistanceKm}km Avg distance` : "Distance unavailable"}</span>
-                     <div className="h-3 w-px bg-border" />
-                     <span className="flex items-center gap-2">
+                  <div className="mt-8 sm:mt-10 flex flex-wrap gap-4 sm:gap-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                     <span className="flex items-center gap-2 whitespace-nowrap"><MapPin size={14} className="text-black" /> {typeof activeZone.averageDistanceKm === "number" ? `${activeZone.averageDistanceKm}km Avg` : "N/A"}</span>
+                     <div className="hidden sm:block h-3 w-px bg-border" />
+                     <span className="flex items-center gap-2 whitespace-nowrap">
                        <Star size={14} className={cn(activeZone.hotelInventoryStatus === "live" ? "text-amber-500" : "text-muted-foreground/20")} fill={activeZone.hotelInventoryStatus === "live" ? "currentColor" : "none"} />
-                       {activeZone.hotelInventoryStatus === "live" ? `${activeZone.hotels.length} Live provider stays` : "No live inventory"}
+                       {activeZone.hotelInventoryStatus === "live" ? `${activeZone.hotels.length} Stays` : "No live inventory"}
                      </span>
                   </div>
                </header>

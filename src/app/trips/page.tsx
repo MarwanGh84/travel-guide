@@ -135,16 +135,16 @@ export default function TripsPage() {
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
       {/* 1. Step Rail / Library */}
-      <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface p-6 lg:w-[350px] lg:border-b-0 lg:border-r">
-        <div className="flex flex-col h-full gap-8 overflow-y-auto pr-1 scrollbar-hide">
+      <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface p-4 sm:p-6 lg:w-[350px] lg:border-b-0 lg:border-r overflow-y-auto lg:overflow-hidden lg:h-full">
+        <div className="flex flex-col gap-6 sm:gap-8 pr-1 lg:h-full lg:overflow-y-auto scrollbar-hide">
           <section>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Management</span>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground">Journeys</h1>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-foreground uppercase">Journeys</h1>
           </section>
 
           {/* Active Brief Summary Panel */}
           {activeBrief ? (
-            <section className="rounded-xl border border-border bg-background p-5 shadow-sm animate-in fade-in slide-in-from-left-4 duration-500">
+            <section className="rounded-xl border border-border bg-background p-4 sm:p-5 shadow-sm animate-in fade-in slide-in-from-left-4 duration-500">
                <header className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                      <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
@@ -153,18 +153,20 @@ export default function TripsPage() {
                   <span className="text-[9px] font-bold text-muted uppercase">{activeBrief.status}</span>
                </header>
                
-               <div className="space-y-4">
+               <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-col">
                   <BriefItem icon={MapPin} label="Route" value={`${activeBrief.destination || 'Global'}, ${activeBrief.country || 'Anywhere'}`} />
                   <BriefItem icon={Calendar} label="Window" value={`${activeBrief.startDate} — ${activeBrief.endDate}`} />
                   <BriefItem icon={Calendar} label="Duration" value={`${activeBrief.duration} days`} />
                   <BriefItem icon={Wallet} label="Capital" value={formatCurrency(activeBrief.budget)} />
-                  <BriefItem icon={Activity} label="Pace" value={activeBrief.pace} />
+                  <div className="col-span-2 sm:col-span-1">
+                    <BriefItem icon={Activity} label="Pace" value={activeBrief.pace} />
+                  </div>
                </div>
 
                {activeBrief.interests.length > 0 && (
                  <div className="mt-4 flex flex-wrap gap-2">
                    {activeBrief.interests.map((interest) => (
-                     <span key={interest} className="rounded-full border border-border bg-surface px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-muted">
+                     <span key={interest} className="rounded-full border border-border bg-surface px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest text-muted">
                        {interest}
                      </span>
                    ))}
@@ -175,17 +177,17 @@ export default function TripsPage() {
                   <button 
                     onClick={() => setPendingDelete({ id: activeBrief.id, name: activeBrief.name, isActive: true })}
                     disabled={isPending}
-                    className="w-full h-10 rounded-md border border-border bg-surface text-[9px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full h-9 rounded-md border border-border bg-surface text-[9px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                     {isPending ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />} Terminate Brief
+                     {isPending ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />} Terminate
                   </button>
                </div>
             </section>
           ) : (
-            <section className="rounded-xl border border-dashed border-border p-8 text-center opacity-50">
-               <Sparkles size={32} className="mx-auto mb-4 text-muted" strokeWidth={1} />
-               <p className="text-[10px] font-bold uppercase tracking-widest">No Active Workspace</p>
-               <p className="mt-2 text-[9px] uppercase font-medium">Initialize a brief to start planning.</p>
+            <section className="rounded-xl border border-dashed border-border p-6 text-center opacity-50">
+               <Sparkles size={24} className="mx-auto mb-3 text-muted" strokeWidth={1} />
+               <p className="text-[10px] font-bold uppercase tracking-widest">No Active Hub</p>
+               <p className="mt-1 text-[9px] uppercase font-medium">Initialize a brief to start.</p>
             </section>
           )}
 
@@ -196,13 +198,13 @@ export default function TripsPage() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted">Library</span>
                   <Archive size={12} className="text-muted" />
                </div>
-               <div className="space-y-2">
+               <div className="flex gap-3 overflow-x-auto lg:flex-col lg:overflow-x-visible pb-2 lg:pb-0 no-scrollbar">
                   {library.map((item) => (
                     <div
                       key={item.id}
                       className={cn(
-                        "flex items-stretch overflow-hidden rounded-lg border transition-all",
-                        item.id === activeBrief?.id ? "border-black bg-background ring-1 ring-black/5" : "border-border/60 bg-background/50 hover:border-black",
+                        "min-w-[240px] shrink-0 flex items-stretch overflow-hidden rounded-xl border transition-all lg:min-w-0 lg:shrink",
+                        item.id === activeBrief?.id ? "border-black bg-background shadow-sm ring-1 ring-black/5" : "border-border/60 bg-background/50 hover:border-black",
                         isPending && "opacity-50 grayscale",
                       )}
                     >
@@ -214,7 +216,7 @@ export default function TripsPage() {
                           className="group h-full w-full p-4 text-left"
                         >
                           <div className="flex items-center justify-between">
-                            <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", item.id === activeBrief?.id ? "text-foreground" : "text-muted-2")}>{item.name}</h4>
+                            <h4 className={cn("truncate text-xs font-black uppercase tracking-tight", item.id === activeBrief?.id ? "text-foreground" : "text-muted-2")}>{item.name}</h4>
                             {item.id !== activeBrief?.id && (
                               isPending ? <Loader2 size={10} className="animate-spin" /> : <ChevronRight size={12} className="text-muted transition-transform group-hover:translate-x-1" />
                             )}
@@ -269,97 +271,97 @@ export default function TripsPage() {
       </aside>
 
       {/* 2. Main Builder Workspace */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto scrollbar-hide">
         <form 
           key={activeBrief?.id || "new-trip"}
           action={createTrip} 
-          className="relative mx-auto flex min-h-full max-w-2xl flex-col p-8 lg:p-24"
+          className="relative mx-auto flex min-h-full max-w-2xl flex-col p-6 sm:p-12 lg:p-24"
         >
           <input type="hidden" name="destinationMode" value={destinationMode} />
           <TripPreparingOverlay />
           
           <div className="flex-1">
-            <header className="mb-12">
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">PROTOCOL 0{step + 1}</span>
-               <h1 className="mt-2 text-4xl lg:text-5xl font-black tracking-tighter uppercase text-foreground leading-none">{steps[step]}</h1>
+            <header className="mb-8 sm:mb-12">
+               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Protocol 0{step + 1}</span>
+               <h1 className="mt-2 text-3xl sm:text-5xl font-black tracking-tighter uppercase text-foreground leading-none">{steps[step]}</h1>
             </header>
 
-            <div className="space-y-10">
-              <div className={cn("space-y-8", step !== 0 && "hidden")}>
-                <ConfigField label="MISSION NAME" description="Identify this planning sector.">
-                   <Input autoFocus name="name" placeholder="Summer break 2026" className="h-12 bg-surface font-bold uppercase tracking-wide border-border" />
+            <div className="space-y-8 sm:space-y-10">
+              <div className={cn("space-y-6 sm:space-y-8", step !== 0 && "hidden")}>
+                <ConfigField label="Mission Name" description="Identify this sector.">
+                   <Input autoFocus name="name" placeholder="Summer 2026" className="h-12 bg-surface font-bold uppercase tracking-wide border-border" />
                 </ConfigField>
-                <ConfigField label="DESTINATION STRATEGY">
+                <ConfigField label="Strategy">
                    <Select value={destinationMode} onChange={(event) => setDestinationMode(event.target.value as "known" | "recommend")} className="h-12 bg-surface font-bold uppercase tracking-wide border-border">
                       <option value="known">MANUAL ENTRY</option>
-                      <option value="recommend">AI RECOMMENDATION</option>
+                      <option value="recommend">AI ADVICE</option>
                    </Select>
                 </ConfigField>
-                <div className="grid gap-6 lg:grid-cols-2">
-                   <ConfigField label="CITY">
+                <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+                   <ConfigField label="City">
                       <Input name="destination" disabled={destinationMode === "recommend"} className="h-12 bg-surface border-border font-bold uppercase" placeholder="e.g. Tokyo" />
                    </ConfigField>
-                   <ConfigField label="COUNTRY">
+                   <ConfigField label="Country">
                       <Input name="destinationCountry" className="h-12 bg-surface border-border font-bold uppercase" placeholder="e.g. Japan" />
                    </ConfigField>
                 </div>
               </div>
 
-              <div className={cn("space-y-8", step !== 1 && "hidden")}>
-                <ConfigField label="DEPARTURE ORIGIN">
+              <div className={cn("space-y-6 sm:space-y-8", step !== 1 && "hidden")}>
+                <ConfigField label="Departure Origin">
                    <Input name="departureCity" className="h-12 bg-surface border-border font-bold uppercase" placeholder="NYC, London, etc." />
                 </ConfigField>
-                <div className="grid gap-6 lg:grid-cols-2">
-                   <ConfigField label="START DATE">
+                <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+                   <ConfigField label="Start Date">
                       <Input name="startDate" type="date" className="h-12 bg-surface border-border font-bold" />
                    </ConfigField>
-                   <ConfigField label="END DATE">
+                   <ConfigField label="End Date">
                       <Input name="endDate" type="date" className="h-12 bg-surface border-border font-bold" />
                    </ConfigField>
                 </div>
-                <ConfigField label="TOTAL TRAVELERS">
+                <ConfigField label="Travelers">
                    <Input name="travelerCount" type="number" defaultValue={1} className="h-12 bg-surface border-border font-bold" />
                 </ConfigField>
               </div>
 
-              <div className={cn("space-y-8", step !== 2 && "hidden")}>
-                <ConfigField label="GLOBAL CAPITAL POOL" description="Allocated budget for this journey.">
+              <div className={cn("space-y-6 sm:space-y-8", step !== 2 && "hidden")}>
+                <ConfigField label="Capital Pool" description="Allocated budget.">
                    <Input name="budget" type="number" className="h-14 bg-surface border-border text-2xl font-black" placeholder="0.00" />
                 </ConfigField>
-                <div className="grid gap-6 lg:grid-cols-2">
-                   <ConfigField label="TRAVEL STYLE">
-                      <Select name="travelStyle" defaultValue="balanced" className="h-12 bg-surface border-border font-bold uppercase">
+                <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+                   <ConfigField label="Style">
+                      <Select name="travelStyle" defaultValue="balanced" className="h-12 bg-surface border-border font-bold uppercase text-xs">
                          {["relaxed", "balanced", "adventure", "luxury", "family", "romantic", "cultural"].map((style) => <option key={style} value={style}>{style.toUpperCase()}</option>)}
                       </Select>
                    </ConfigField>
-                   <ConfigField label="DAILY PACE">
-                      <Select name="pace" defaultValue="medium" className="h-12 bg-surface border-border font-bold uppercase">
+                   <ConfigField label="Pace">
+                      <Select name="pace" defaultValue="medium" className="h-12 bg-surface border-border font-bold uppercase text-xs">
                          {["slow", "medium", "packed"].map((pace) => <option key={pace} value={pace}>{pace.toUpperCase()}</option>)}
                       </Select>
                    </ConfigField>
                 </div>
               </div>
 
-              <div className={cn("space-y-10", step !== 3 && "hidden")}>
+              <div className={cn("space-y-8 sm:space-y-10", step !== 3 && "hidden")}>
                 <div className="flex flex-wrap gap-2">
                    {interestsList.map((interest) => (
-                     <label key={interest} className="group flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all hover:border-black has-[:checked]:bg-black has-[:checked]:text-white shadow-sm">
+                     <label key={interest} className="group flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all hover:border-black has-[:checked]:bg-black has-[:checked]:text-white shadow-sm">
                         <input name="interests" value={interest} type="checkbox" className="hidden" />
                         {interest}
                      </label>
                    ))}
                 </div>
-                <ConfigField label="INTERNAL MEMO" description="Custom logic and planning requirements.">
-                   <Textarea name="notes" className="min-h-32 bg-surface border-border p-4 text-sm font-medium leading-relaxed" placeholder="e.g. Prioritize photography spots and local coffee culture..." />
+                <ConfigField label="Memo" description="Custom logic.">
+                   <Textarea name="notes" className="min-h-32 bg-surface border-border p-4 text-sm font-medium leading-relaxed" placeholder="e.g. Prioritize photography..." />
                 </ConfigField>
               </div>
 
               <div className={cn("space-y-6", step !== 4 && "hidden")}>
-                <div className="rounded-2xl border-2 border-dashed border-border bg-surface p-12 text-center">
-                   <ShieldCheck size={48} className="mx-auto text-emerald-500 mb-6" strokeWidth={1.5} />
+                <div className="rounded-2xl border-2 border-dashed border-border bg-surface p-8 sm:p-12 text-center">
+                   <ShieldCheck size={40} className="mx-auto text-emerald-500 mb-6" strokeWidth={1.5} />
                    <h3 className="text-xl font-bold uppercase tracking-tight">System Ready</h3>
                    <p className="mt-4 text-xs font-medium text-muted leading-relaxed max-w-sm mx-auto uppercase tracking-widest">
-                      Commit this brief to initialize the workspace. The discovery engine will trigger automatically.
+                      Commit brief to initialize workspace.
                    </p>
                    <TripSubmitButton />
                 </div>
@@ -367,23 +369,23 @@ export default function TripsPage() {
             </div>
           </div>
 
-          <footer className="mt-20 flex items-center justify-between border-t border-border pt-10">
+          <footer className="mt-12 sm:mt-20 flex items-center justify-between border-t border-border pt-8 sm:pt-10 pb-10 sm:pb-0">
             <button 
               type="button" 
               onClick={() => setStep((current) => Math.max(0, current - 1))} 
               disabled={step === 0} 
-              className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-black disabled:opacity-30 transition-all"
+              className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-4 sm:px-5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-black disabled:opacity-30 transition-all"
             >
-              <ArrowLeft size={12} /> BACK
+              <ArrowLeft size={12} /> <span className="hidden xs:inline">Back</span>
             </button>
             
             {step < steps.length - 1 && (
               <button 
                 type="button" 
                 onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} 
-                className="flex h-10 items-center gap-2 rounded-md bg-black px-6 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg hover:bg-zinc-800 transition-all"
+                className="flex h-10 items-center gap-2 rounded-md bg-black px-5 sm:px-6 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg hover:bg-zinc-800 transition-all"
               >
-                CONTINUE <ArrowRight size={12} />
+                <span className="hidden xs:inline">Continue</span><span className="xs:hidden">Next</span> <ArrowRight size={12} />
               </button>
             )}
           </footer>

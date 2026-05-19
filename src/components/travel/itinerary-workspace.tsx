@@ -195,24 +195,29 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
       {/* 1. Timeline Pane */}
       <aside className={cn(
         "flex w-full shrink-0 flex-col border-r border-border bg-surface transition-all duration-300 lg:w-[400px]",
-        activeDayId && "h-[250px] lg:h-full"
+        activeDayId ? "h-[180px] lg:h-full" : "h-full"
       )}>
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-foreground">TIMELINE</span>
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-muted">
-              {days.length}
-            </span>
+        <div className="flex h-auto min-h-12 shrink-0 flex-col border-b border-border bg-background px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:py-0">
+          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-foreground">TIMELINE</span>
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-muted">
+                {days.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 sm:hidden">
+               <ToolbarButton className="flex sm:hidden" onClick={exportJson} title="Export as JSON"><Download size={12} /></ToolbarButton>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {trip?.status === "itinerary_approved" ? (
                <div className="flex items-center gap-1">
-                  <div className="flex h-7 items-center gap-1.5 rounded-md bg-emerald-50 px-3 text-[9px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-200">
+                  <div className="flex h-7 items-center gap-1.5 rounded-md bg-emerald-50 px-2 sm:px-3 text-[9px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-200">
                     <ShieldCheck size={12} />
-                    Committed
+                    <span className="hidden xs:inline">Committed</span>
                   </div>
                   <form action={reopenItinerary}>
-                     <ToolbarButton type="submit" title="Unlock for editing">Reopen</ToolbarButton>
+                     <ToolbarButton type="submit" title="Unlock for editing">Unlock</ToolbarButton>
                   </form>
                </div>
             ) : (
@@ -229,7 +234,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                </form>
             )}
 
-            <div className="h-4 w-px bg-border mx-1" />
+            <div className="hidden h-4 w-px bg-border mx-1 sm:block" />
 
             <ToolbarButton 
                onClick={generate} 
@@ -240,6 +245,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
               {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
               AI Build
             </ToolbarButton>
+            
             <form action={clearItinerary}>
                <ToolbarButton
                  type="submit"
@@ -252,6 +258,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                   Clear
                </ToolbarButton>
             </form>
+
             <ToolbarButton onClick={addDay} disabled={Boolean(busyAction)} title="Add manual segment">
               {busyAction === "add" ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
               Day
@@ -289,24 +296,24 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
       {/* 2. Focused Plan & Intelligence Pane */}
       <main className="relative flex-1 bg-surface-2 overflow-hidden flex flex-col lg:flex-row">
         {/* Active Day Detail */}
-        <section className="flex-1 overflow-y-auto bg-background p-8 lg:p-16 xl:p-24 border-r border-border">
+        <section className="flex-1 overflow-y-auto bg-background p-6 sm:p-12 lg:p-16 xl:p-24 border-r border-border scrollbar-hide">
            {activeDay ? (
-             <div className="max-w-3xl mx-auto space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="max-w-3xl mx-auto space-y-12 sm:space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <header>
                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Active Objective</span>
-                   <h1 className="mt-4 text-4xl lg:text-6xl font-black tracking-tighter uppercase text-foreground leading-none">{activeDay.theme}</h1>
-                   <div className="mt-8 flex flex-wrap items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      <span className="flex items-center gap-2 border-b border-border pb-1"><Clock size={14} className="text-black" /> {activeDay.date}</span>
-                      <span className="flex items-center gap-2 border-b border-border pb-1"><ShieldCheck size={14} className="text-black" /> {formatCurrency(activeDay.estimatedCost)} estimate</span>
-                      <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-purple-700 shadow-sm">AI Protocol Planning</span>
+                   <h1 className="mt-4 text-3xl sm:text-4xl lg:text-6xl font-black tracking-tighter uppercase text-foreground leading-tight sm:leading-none">{activeDay.theme}</h1>
+                   <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-4 sm:gap-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      <span className="flex items-center gap-2 border-b border-border pb-1 whitespace-nowrap"><Clock size={14} className="text-black" /> {activeDay.date}</span>
+                      <span className="flex items-center gap-2 border-b border-border pb-1 whitespace-nowrap"><ShieldCheck size={14} className="text-black" /> {formatCurrency(activeDay.estimatedCost)}</span>
+                      <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-purple-700 shadow-sm whitespace-nowrap">AI Protocol Planning</span>
                    </div>
                 </header>
 
-                <div className="space-y-12 pb-24">
+                <div className="space-y-10 sm:space-y-12 pb-24">
                    {tacticalPoints.length > 0 && (
                      <section>
                         <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Tactical Points</h3>
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-3 sm:grid-cols-2">
                            {tacticalPoints.map((point, i) => {
                              const name = point.title;
                              const linkedPlace =
@@ -316,7 +323,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                              return (
                                <div
                                   key={i}
-                                  className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2 transition-all hover:border-black"
+                                  className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2 transition-all hover:border-black shadow-sm"
                                >
                                   <button
                                     type="button"
@@ -324,13 +331,13 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
                                     className="group flex min-w-0 flex-1 items-center justify-between rounded-lg p-2 text-left"
                                   >
                                      <div className="flex min-w-0 items-center gap-3">
-                                        <div className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted group-hover:text-black">
-                                           <MapPin size={14} />
+                                        <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted group-hover:text-black">
+                                           <MapPin size={16} />
                                         </div>
                                         <div className="min-w-0">
                                           <span className="block truncate text-xs font-bold uppercase tracking-tight">{name}</span>
                                           <span className="mt-1 block truncate text-[9px] font-black uppercase tracking-widest text-muted">
-                                            {linkedPlace?.coordinates ? `${linkedPlace.location || "Provider mapped"} · ${linkedPlace.source.provider}` : linkedPlace ? "Provider record without coordinates" : "AI text only"}
+                                            {linkedPlace?.coordinates ? `${linkedPlace.location || "Provider mapped"} · ${linkedPlace.source.provider}` : linkedPlace ? "Provider record" : "AI text only"}
                                           </span>
                                         </div>
                                      </div>

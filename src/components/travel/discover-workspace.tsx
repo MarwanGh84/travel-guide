@@ -63,12 +63,12 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
   const [isPending, startTransition] = useTransition();
 
   const categories = [
-    { id: "intel", label: "Intelligence", icon: Info },
-    { id: "destinations", label: "Destination Ideas", icon: Globe },
-    { id: "all", label: "All Places", icon: Compass },
-    { id: "saved", label: "Saved Places", icon: Bookmark },
-    { id: "hidden", label: "Hidden Gems", icon: Star },
-    { id: "food", label: "Dining", icon: Utensils },
+    { id: "intel", label: "Intel", icon: Info },
+    { id: "destinations", label: "Ideas", icon: Globe },
+    { id: "all", label: "All", icon: Compass },
+    { id: "saved", label: "Saved", icon: Bookmark },
+    { id: "hidden", label: "Gems", icon: Star },
+    { id: "food", label: "Food", icon: Utensils },
     { id: "culture", label: "Culture", icon: Church },
     { id: "nature", label: "Nature", icon: Navigation },
   ];
@@ -180,20 +180,20 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
         <div className="hidden lg:flex p-4 border-b border-border bg-background">
            <span className="text-[10px] font-black uppercase tracking-widest text-muted">Field Guide</span>
         </div>
-        <nav className="flex gap-1 overflow-x-auto p-2 scrollbar-hide lg:flex-1 lg:flex-col lg:overflow-x-visible">
+        <nav className="flex gap-1 overflow-x-auto p-2 no-scrollbar scrollbar-hide lg:flex-1 lg:flex-col lg:overflow-x-visible">
            {categories.map((cat) => (
              <button
                 key={cat.id}
                 onClick={() => { setActiveCategoryId(cat.id); setShowDetail(false); }}
                 className={cn(
-                  "flex items-center gap-3 shrink-0 rounded-md px-3 py-2.5 text-xs font-bold transition-all lg:w-full border-l-2",
+                  "flex items-center gap-3 shrink-0 rounded-md px-3 py-2 text-xs font-bold transition-all lg:w-full border-l-2 lg:py-2.5",
                   activeCategoryId === cat.id 
                     ? "bg-surface-2 text-foreground border-black shadow-sm" 
                     : "text-muted-foreground border-transparent hover:bg-surface-2/30 hover:border-border"
                 )}
              >
                 <cat.icon size={14} className={cn(activeCategoryId === cat.id ? "text-foreground" : "text-muted-foreground")} />
-                <span className="lg:inline whitespace-nowrap">{cat.label}</span>
+                <span className="whitespace-nowrap">{cat.label}</span>
              </button>
            ))}
         </nav>

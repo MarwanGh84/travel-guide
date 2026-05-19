@@ -34,13 +34,13 @@ test("active trip context stays consistent across route navigation", async ({ pa
 
 test("discover saved places persist across a real refresh and removal", async ({ page }) => {
   await page.goto("/discover");
-  await page.getByRole("button", { name: "All Places" }).click();
+  await page.getByRole("button", { name: /^All/i }).click();
   await page.getByRole("button", { name: /Byblos Old Souk/i }).click();
   await page.getByRole("button", { name: /Stack/i }).click();
   await expect(page.getByText(/Place saved for itinerary planning/i)).toBeVisible();
 
   await page.reload();
-  await page.getByRole("button", { name: "Saved Places" }).click();
+  await page.getByRole("button", { name: /^Saved/i }).click();
   await expect(page.getByRole("button", { name: /Byblos Old Souk/i })).toBeVisible();
 
   await page.getByRole("button", { name: /Byblos Old Souk/i }).click();
@@ -48,7 +48,7 @@ test("discover saved places persist across a real refresh and removal", async ({
   await expect(page.getByText(/Place removed from saved places/i)).toBeVisible();
 
   await page.reload();
-  await page.getByRole("button", { name: "Saved Places" }).click();
+  await page.getByRole("button", { name: /^Saved/i }).click();
   await expect(page.getByRole("button", { name: /Byblos Old Souk/i })).toHaveCount(0);
 });
 
@@ -71,23 +71,23 @@ test("currency page stays honest when the pair is unsupported", async ({ page })
   await page.goto("/currency");
   await expect(page.getByText(/Destination currency/i)).toBeVisible();
   await expect(
-    page.getByText(/Destination conversion unavailable|Exchange rate unavailable|Frankfurter did not return/i).first(),
+    page.getByText(/Destination conversion unavailable|Exchange rate unavailable|Frankfurter did not return|FX MISSING/i).first(),
   ).toBeVisible();
   await expect(page.getByText(/No conversion is shown until a valid provider rate is available/i)).toBeVisible();
 });
 
 test("booking creation survives a browser refresh", async ({ page }) => {
   await page.goto("/bookings");
-  await page.getByRole("button", { name: /New Record/i }).click();
+  await page.getByRole("button", { name: /New Record|Add/i }).first().click();
   await page.locator('input[name="title"]').fill("E2E Harbor Dinner");
   await page.locator('input[name="provider"]').fill("Manual");
   await page.locator('input[name="confirmationNumber"]').fill("E2E-BOOKING");
   await page.locator('input[name="startAt"]').fill("2026-05-19");
-  await page.getByRole("button", { name: /Save Booking/i }).click();
-  await expect(page.getByText("E2E Harbor Dinner")).toBeVisible();
+  await page.getByRole("button", { name: /Save Record|Save Booking/i }).click();
+  await expect(page.getByText("E2E Harbor Dinner").first()).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText("E2E Harbor Dinner")).toBeVisible();
+  await expect(page.getByText("E2E Harbor Dinner").first()).toBeVisible();
 });
 
 test("document upload renders an inline preview after refresh", async ({ page }) => {

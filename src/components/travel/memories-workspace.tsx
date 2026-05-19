@@ -98,17 +98,17 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
   return (
     <div className="flex min-h-full w-full flex-col bg-background lg:h-full lg:flex-row lg:overflow-hidden">
       {/* 1. Sidebar - Timeline of Memories */}
-      <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface lg:w-[320px] lg:border-b-0 lg:border-r">
+      <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface lg:w-[320px] lg:border-b-0 lg:border-r overflow-y-auto lg:overflow-hidden lg:h-full">
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
            <span className="text-[10px] font-black uppercase tracking-widest text-foreground">Archive</span>
            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-muted">{memories.length}</span>
         </div>
 
-        <div className="divide-y divide-border/50 lg:flex-1 lg:overflow-y-auto">
+        <div className="flex gap-4 overflow-x-auto lg:flex-col lg:overflow-x-visible divide-x lg:divide-x-0 lg:divide-y divide-border/50 lg:flex-1 lg:overflow-y-auto no-scrollbar">
            {memorySources.length > 0 && (
-             <div className="space-y-3 p-4">
+             <div className="shrink-0 w-[280px] lg:w-full space-y-3 p-4">
                <div className="flex items-center justify-between gap-3">
-                 <span className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive Folders</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-muted">Google Drive</span>
                  <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-bold text-muted">{memoryAssets.length}</span>
                </div>
                <div className="space-y-2">
@@ -125,14 +125,14 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                        }}
                        className={cn(
                          "block w-full rounded-xl border p-3 text-left transition-colors",
-                         selected ? "border-foreground bg-background" : "border-border bg-background hover:bg-surface-2",
+                         selected ? "border-foreground bg-background shadow-sm" : "border-border bg-background hover:bg-surface-2",
                        )}
                      >
                        <p className="truncate text-xs font-black uppercase tracking-tight text-foreground">
                          {source.folderName ?? "Linked folder"}
                        </p>
-                       <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted">
-                         {sourceAssetCount} synced asset{sourceAssetCount === 1 ? "" : "s"}
+                       <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-muted">
+                         {sourceAssetCount} assets
                        </p>
                      </button>
                    );
@@ -145,7 +145,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                 key={m.id}
                 onClick={() => setSelectedId(m.id)}
                 className={cn(
-                  "flex w-full flex-col gap-1 p-4 text-left transition-all",
+                  "shrink-0 w-[240px] lg:w-full flex flex-col gap-1 p-4 text-left transition-all",
                   resolvedSelectedId === m.id ? "bg-background ring-1 ring-inset ring-border" : "hover:bg-background/50"
                 )}
              >
@@ -155,55 +155,50 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                    </h4>
                    <span className="text-[10px] font-bold text-black">{m.rating}/5</span>
                 </div>
-                <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted">{tripName}</p>
+                <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted">{tripName}</p>
              </button>
            ))}
-           {memories.length === 0 && (
-             <div className="p-12 text-center opacity-40">
+           {memories.length === 0 && memorySources.length === 0 && (
+             <div className="p-12 text-center opacity-40 w-full lg:w-full">
                 <Bookmark size={32} className="mx-auto mb-4" strokeWidth={1} />
-                <p className="text-[10px] font-bold uppercase tracking-widest">No entries recorded</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest">No entries</p>
              </div>
            )}
         </div>
 
-        <div className="border-t border-border bg-background p-4">
+        <div className="border-t border-border bg-background p-4 mt-auto lg:mt-0">
            <button
              onClick={() => {
                setShowFolderForm(true);
              }}
              className="flex h-9 w-full items-center justify-center gap-2 rounded-md bg-black text-[10px] font-black uppercase tracking-widest text-white hover:bg-zinc-800 transition-all"
            >
-              <PlusCircle size={14} /> Add Drive Folder
+              <PlusCircle size={14} /> Add Drive
            </button>
         </div>
       </aside>
 
       {/* 2. Main Detail Stage */}
-      <main className="relative flex-1 overflow-y-auto bg-background p-4 pb-20 sm:p-6 lg:p-10">
+      <main className="relative flex-1 overflow-y-auto bg-background p-4 pb-20 sm:p-6 lg:p-10 scrollbar-hide">
         <section className="mx-auto mb-10 max-w-6xl rounded-2xl border border-border bg-surface p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Google Drive Memories</p>
-              <h2 className="mt-2 text-lg font-black uppercase tracking-tight text-foreground">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Drive Intel</p>
+              <h2 className="mt-2 text-lg font-black uppercase tracking-tight text-foreground truncate">
                 {memorySource?.folderName ?? "No Drive folder linked"}
               </h2>
-              <p className="mt-2 text-xs text-muted">
-                Files remain in Google Drive. This app stores metadata only; previews are fetched on demand.
+              <p className="mt-2 text-xs text-muted leading-relaxed">
+                Previews are fetched on demand.
               </p>
-              {memorySource && (
-                <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-                  {folderAssets.length} synced asset{folderAssets.length === 1 ? "" : "s"}
-                </p>
-              )}
             </div>
             {memorySource && (
               <a
                 href={memorySource.folderUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-[10px] font-black uppercase tracking-widest"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border px-4 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto"
               >
-                <FolderOpen size={13} /> Open folder
+                <FolderOpen size={13} /> Open in Drive
               </a>
             )}
           </div>
@@ -370,19 +365,19 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
               transition={{ duration: 0.2 }}
               className="mx-auto max-w-2xl"
             >
-               <header className="mb-12 border-b border-border pb-12">
-                  <div className="flex items-center gap-4 mb-6">
+               <header className="mb-8 sm:mb-12 border-b border-border pb-8 sm:pb-12">
+                  <div className="flex items-center gap-4 mb-4 sm:mb-6">
                      <div className="flex gap-0.5 text-black">
                         {[...Array(5)].map((_, i) => (
                           <Heart key={i} size={10} fill={(active.rating ?? 0) > i ? "currentColor" : "none"} className={(active.rating ?? 0) > i ? "" : "text-muted"} />
                         ))}
                      </div>
-                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{tripName} PERSPECTIVE</span>
+                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{tripName} Perspective</span>
                   </div>
-                  <h1 className="text-5xl font-black uppercase tracking-tighter text-foreground">{active.title}</h1>
+                  <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tighter text-foreground leading-none">{active.title}</h1>
                </header>
 
-               <div className="space-y-16">
+               <div className="space-y-12 sm:space-y-16">
                   {/* Photo Section */}
                   {active.photosPlaceholder && (
                     <section className="relative aspect-video overflow-hidden rounded-2xl border border-border shadow-sm">
@@ -403,7 +398,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                            <p className="text-lg font-medium leading-relaxed text-foreground">{active.favoriteMoments}</p>
                         </div>
                         <div>
-                           <h3 className="text-[10px] font-bold uppercase text-muted mb-2">Internal Memo</h3>
+                           <h3 className="text-[10px] font-bold uppercase text-muted mb-2 text-rose-600">Internal Memo</h3>
                            <p className="text-base leading-relaxed text-muted-2 italic">{active.notes}</p>
                         </div>
                      </div>
@@ -429,31 +424,31 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
             role="dialog"
             aria-modal="true"
             aria-label={previewAsset.name}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-2 sm:p-4"
             onClick={() => setPreviewAssetId(null)}
           >
-            <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col gap-3" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between gap-3 text-white">
+            <div className="relative flex max-h-[95vh] w-full max-w-5xl flex-col gap-3" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between gap-3 text-white px-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold">{previewAsset.name}</p>
-                  <p className="text-xs text-white/70">Google Drive photo preview</p>
+                  <p className="truncate text-sm font-bold uppercase tracking-tight">{previewAsset.name}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Google Drive Photo</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setPreviewAssetId(null)}
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-white/25 text-white transition-colors hover:bg-white/10"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white backdrop-blur-md transition-colors hover:bg-white/10"
                   aria-label="Close preview"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
-              <div className="relative min-h-[240px] flex-1 overflow-hidden rounded-lg bg-black">
+              <div className="relative min-h-[200px] flex-1 overflow-hidden rounded-xl bg-zinc-950 flex items-center justify-center">
                 <Image
                   src={`/api/memories/assets/${previewAsset.id}/content`}
                   alt={previewAsset.name}
                   width={1600}
                   height={1200}
-                  className="max-h-[78vh] w-full object-contain"
+                  className="max-h-[80vh] w-full object-contain"
                 />
               </div>
             </div>

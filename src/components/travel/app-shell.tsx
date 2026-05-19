@@ -82,10 +82,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Navigation Rail / Drawer */}
       <aside className={cn(
-        "group fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col border-r border-border bg-surface/80 backdrop-blur-lg transition-all duration-300 lg:w-[64px] lg:translate-x-0 lg:hover:w-[240px] lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)]",
+        "group fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-border bg-surface/95 backdrop-blur-lg transition-all duration-300 lg:w-[64px] lg:translate-x-0 lg:hover:w-[240px] lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)]",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="flex h-12 shrink-0 items-center justify-between px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between px-4 lg:h-12">
           <div className="flex items-center">
             <div className="grid size-8 shrink-0 place-items-center rounded bg-black text-white shadow-sm">
               <MapPinned size={18} />
@@ -94,12 +94,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Travel Workstation
             </span>
           </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden hover:bg-surface-2 p-1 rounded-md transition-colors">
-            <X size={18} className="text-muted-foreground" />
+          <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden hover:bg-surface-2 p-2 rounded-md transition-colors">
+            <X size={20} className="text-muted-foreground" />
           </button>
         </div>
 
-        <nav className="mt-4 flex-1 space-y-1 px-2 overflow-y-auto scrollbar-hide">
+        <nav className="mt-4 flex-1 space-y-1 px-2 overflow-y-auto scrollbar-hide pb-20 lg:pb-0">
           {primaryNav.map((item) => (
             <NavItem key={item.href} {...item} active={pathname === item.href} onClick={() => setMobileMenuOpen(false)} />
           ))}
@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="mb-4 space-y-1 px-2 shrink-0">
+        <div className="mt-auto mb-4 space-y-1 px-2 shrink-0 border-t border-border pt-4 lg:border-none lg:pt-0">
           <NavItem href="/profile" label="Profile" icon={User} active={pathname === "/profile"} onClick={() => setMobileMenuOpen(false)} />
           <NavItem href="/integrations" label="Settings" icon={Settings2} active={pathname === "/integrations"} onClick={() => setMobileMenuOpen(false)} />
         </div>
@@ -120,31 +120,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Container */}
       <main className="flex flex-1 flex-col overflow-hidden relative lg:pl-[64px]">
         {/* Command Bar / Global Header */}
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md px-4 z-30">
-          <div className="flex items-center gap-3 text-muted-foreground">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md px-4 z-30 lg:h-12">
+          <div className="flex items-center gap-3 text-muted-foreground min-w-0">
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className="grid size-8 place-items-center rounded hover:bg-surface-2 transition-colors lg:hidden"
+              className="grid size-9 place-items-center rounded hover:bg-surface-2 transition-colors lg:hidden shrink-0"
             >
-              <Menu size={20} />
+              <Menu size={22} />
             </button>
             <div className="hidden items-center gap-2 lg:flex">
               <span className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40">System</span>
               <span className="text-border">/</span>
             </div>
-            <span className="text-[11px] font-bold text-foreground truncate max-w-[200px] lg:max-w-none uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-foreground truncate uppercase tracking-wide">
               {pathname === "/" ? "Dashboard" : pathname.split("/").filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" / ")}
             </span>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button className="grid size-8 place-items-center rounded hover:bg-surface-2 transition-colors">
               <Bell size={16} className="text-muted-foreground" />
             </button>
             <div className="h-6 w-px bg-border" />
             <div className="flex items-center gap-2 pl-1">
-              <div className="size-6 rounded-full bg-surface-2 border border-border" />
-              <span className="text-[10px] font-bold text-muted-foreground hidden sm:inline uppercase tracking-wider">User</span>
+              <div className="size-6 rounded-full bg-surface-2 border border-border shrink-0" />
+              <span className="text-[10px] font-bold text-muted-foreground hidden sm:inline uppercase tracking-wider truncate max-w-[80px]">User</span>
             </div>
           </div>
         </header>

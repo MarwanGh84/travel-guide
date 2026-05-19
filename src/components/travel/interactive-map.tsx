@@ -96,31 +96,26 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
     <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
       {/* Sidebar - Controls & Detail */}
       <aside className="w-full shrink-0 border-b border-border bg-surface lg:h-full lg:w-[350px] lg:border-b-0 lg:border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
-        <div className="flex min-h-0 flex-col lg:h-full">
+        <div className="flex flex-col lg:h-full">
           <section className="p-6 lg:p-8 border-b border-border bg-background">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Tactical View</span>
-            <h1 className="mt-2 text-3xl font-black uppercase tracking-tighter text-foreground">Mission Map</h1>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-black uppercase tracking-tighter text-foreground">Mission Map</h1>
             <div className="mt-6 flex items-center gap-4">
-               <SummaryItem icon={Milestone} label={route.metricSource === "google-routes" ? "Google route total" : route.metricSource === "computed" ? "Computed total" : "Distance"} value={formatDistance(route.distanceMeters)} />
+               <SummaryItem icon={Milestone} label={route.metricSource === "google-routes" ? "Google route" : "Distance"} value={formatDistance(route.distanceMeters)} />
                <div className="h-8 w-px bg-border" />
-               <SummaryItem icon={Clock3} label={route.metricSource === "google-routes" ? "Google duration" : route.metricSource === "computed" ? "Computed duration" : "Duration"} value={formatDuration(route.duration)} />
+               <SummaryItem icon={Clock3} label={route.metricSource === "google-routes" ? "Google time" : "Duration"} value={formatDuration(route.duration)} />
             </div>
-            {route.routeNote && (
-              <p className="mt-4 text-[9px] font-bold uppercase tracking-widest text-muted-foreground italic">
-                Note: {route.routeNote}
-              </p>
-            )}
           </section>
 
           {/* Sidebar Nav */}
-          <nav className="flex items-center px-6 lg:px-8 border-b border-border bg-surface shrink-0">
+          <nav className="flex items-center px-4 sm:px-6 lg:px-8 border-b border-border bg-surface shrink-0">
              <SidebarTab active={sidebarTab === "list"} label="Index" onClick={() => setSidebarTab("list")} />
              <SidebarTab active={sidebarTab === "segments"} label="Segments" onClick={() => setSidebarTab("segments")} />
              <SidebarTab active={sidebarTab === "detail"} label="Intel" onClick={() => setSidebarTab("detail")} />
           </nav>
 
           {/* Scrollable Content Area */}
-          <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-6 pb-20 scrollbar-hide lg:p-8">
+          <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-6 pb-20 scrollbar-hide lg:p-8 lg:pb-8">
              {sidebarTab === "list" && (
                <section className="space-y-1">
                   {visiblePins.map((pin, index) => (
@@ -381,17 +376,17 @@ function StaticMapFallback({
         </button>
       ))}
 
-      <div className="absolute right-8 bottom-8 z-30 flex flex-col gap-2">
-        <button className="grid size-10 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800" onClick={() => setZoom((current) => Math.min(18, current + 1))}><Plus size={16} /></button>
-        <button className="grid size-10 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800" onClick={() => setZoom((current) => Math.max(3, current - 1))}><Minus size={16} /></button>
+      <div className="absolute right-4 bottom-4 z-30 flex flex-col gap-2 sm:right-8 sm:bottom-8">
+        <button className="grid size-11 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800 sm:size-10" onClick={() => setZoom((current) => Math.min(18, current + 1))}><Plus size={18} className="sm:size-4" /></button>
+        <button className="grid size-11 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800 sm:size-10" onClick={() => setZoom((current) => Math.max(3, current - 1))}><Minus size={18} className="sm:size-4" /></button>
         <button
-          className="grid size-10 place-items-center rounded-md border border-border bg-background text-foreground shadow-xl transition-all hover:bg-surface"
+          className="grid size-11 place-items-center rounded-md border border-border bg-background text-foreground shadow-xl transition-all hover:bg-surface sm:size-10"
           onClick={() => {
             setZoom(route.zoom);
             setCenter(route.center);
           }}
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={18} className="sm:size-4" />
         </button>
       </div>
     </div>
@@ -772,7 +767,7 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
            </span>
          )}
       </div>
-      <h3 className="text-3xl font-black uppercase tracking-tighter text-foreground leading-none">{pin.label}</h3>
+      <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter text-foreground leading-tight sm:leading-none">{pin.label}</h3>
       <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-relaxed">{pin.location}</p>
       
       <div className="mt-8 space-y-2 border-t border-border pt-8">
