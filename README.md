@@ -64,7 +64,6 @@ GMAIL_REDIRECT_URI="http://localhost:3000/api/gmail/callback"
 - `src/lib/api/mapsService.ts`
 - `src/lib/api/weatherService.ts`
 - `src/lib/api/currencyService.ts`
-- `src/lib/api/flightsService.ts`
 - `src/lib/api/hotelsService.ts`
 - `src/lib/api/activitiesService.ts`
 - `src/lib/api/gmailService.ts`

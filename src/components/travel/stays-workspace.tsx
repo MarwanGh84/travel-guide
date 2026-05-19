@@ -142,6 +142,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                        <article key={i} className="group rounded-2xl border border-border bg-surface overflow-hidden hover:border-black transition-all shadow-sm hover:shadow-2xl">
                           <div className="aspect-[16/10] w-full overflow-hidden bg-muted relative">
                              {hotel.photoUrl ? (
+                               // eslint-disable-next-line @next/next/no-img-element -- Intentional use of external provider photo URL
                                <img src={hotel.photoUrl} alt={hotel.name} className="h-full w-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105" />
                              ) : (
                                <div className="h-full w-full flex items-center justify-center text-muted-foreground opacity-20">
@@ -190,18 +191,22 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
 
                              <div className="mt-8">
                                 {hotel.bookingLink ? (
-                                  <button 
+                                  <button
                                      onClick={() => window.open(hotel.bookingLink, "_blank")}
                                      className="w-full h-11 bg-black text-white text-[10px] font-black uppercase tracking-[0.15em] rounded-lg shadow-xl hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
                                   >
                                      View Provider Details <ExternalLink size={12} />
                                   </button>
                                 ) : (
-                                  <div className="flex h-11 w-full items-center justify-center rounded-lg border border-border bg-surface-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 cursor-not-allowed">
-                                    Link Unavailable
-                                  </div>
+                                  <button
+                                     onClick={() => window.open(`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(hotel.name + " " + hotel.area)}`, "_blank")}
+                                     className="w-full h-11 bg-surface-2 text-foreground border border-border text-[10px] font-black uppercase tracking-[0.15em] rounded-lg shadow-sm hover:bg-background transition-all flex items-center justify-center gap-2"
+                                  >
+                                     Search on Booking.com <ExternalLink size={12} />
+                                  </button>
                                 )}
                              </div>
+
                           </div>
                        </article>
                      ))}
