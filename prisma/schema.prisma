@@ -16,6 +16,8 @@ model User {
   activeTripId      String?
   activeTrip        Trip?              @relation("ActiveTrip", fields: [activeTripId], references: [id], onDelete: SetNull)
   connectedAccounts ConnectedAccount[]
+  driveSources      DriveMemorySource[]
+  driveAssets       DriveMemoryAsset[]
   aiLogs            AiGenerationLog[]
   apiLogs           ApiProviderLog[]
   createdAt         DateTime           @default(now())
@@ -86,8 +88,6 @@ model Trip {
   bookings                   Booking[]
   documentNotes              DocumentNote[]
   memories                   Memory[]
-  memorySources              TripMemorySource[]
-  memoryAssets               MemoryAsset[]
   aiLogs                     AiGenerationLog[]
   apiLogs                    ApiProviderLog[]
   destinationIntel           DestinationIntel?
@@ -279,25 +279,27 @@ model Memory {
   createdAt          DateTime @default(now())
 }
 
-model TripMemorySource {
+model DriveMemorySource {
   id           String   @id @default(cuid())
-  tripId       String
-  provider     String
+  userId       String
+  provider     String   // google-drive
   folderId     String
   folderName   String?
   folderUrl    String
   lastSyncedAt DateTime?
-  trip         Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets       DriveMemoryAsset[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@unique([tripId, provider, folderId])
+  @@unique([userId, provider, folderId])
 }
 
-model MemoryAsset {
+model DriveMemoryAsset {
   id               String   @id @default(cuid())
-  tripId           String
-  provider         String
+  userId           String
+  sourceId         String
+  provider         String   // google-drive
   providerFileId   String
   name             String
   mimeType         String
@@ -308,12 +310,14 @@ model MemoryAsset {
   createdTime      DateTime?
   modifiedTime     DateTime?
   size             String?
-  trip             Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source           DriveMemorySource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@unique([provider, providerFileId])
-  @@index([tripId, sourceFolderId])
+  @@index([userId, sourceFolderId])
+  @@index([sourceId])
 }
 
 model AiGenerationLog {

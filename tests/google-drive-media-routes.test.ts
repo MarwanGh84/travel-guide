@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findFirst = vi.fn();
-const getPrimaryTrip = vi.fn();
+const findMany = vi.fn();
+const getOrCreateUser = vi.fn();
 const fetchDriveThumbnail = vi.fn();
 const fetchDriveFileContent = vi.fn();
 
 vi.mock("../src/lib/db/prisma", () => ({
   prisma: {
-    memoryAsset: { findFirst },
+    driveMemoryAsset: { findFirst },
+    driveMemorySource: { findMany },
   },
 }));
 
 vi.mock("../src/lib/db/travel", () => ({
-  getPrimaryTrip,
+  getOrCreateUser,
+  getPrimaryTrip: vi.fn(),
 }));
 
 vi.mock("../src/lib/api/googleDriveService", () => ({
@@ -24,16 +27,14 @@ vi.mock("../src/lib/api/googleDriveService", () => ({
 describe("google drive media routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPrimaryTrip.mockResolvedValue({
-      id: "trip-1",
-      memorySources: [{ provider: "google-drive", folderId: "folder-1" }],
-    });
+    getOrCreateUser.mockResolvedValue({ id: "user-1" });
+    findMany.mockResolvedValue([{ folderId: "folder-1" }]);
   });
 
   it("streams a linked image thumbnail", async () => {
     findFirst.mockResolvedValue({
       id: "asset-1",
-      tripId: "trip-1",
+      userId: "user-1",
       provider: "google-drive",
       sourceFolderId: "folder-1",
       mimeType: "image/jpeg",

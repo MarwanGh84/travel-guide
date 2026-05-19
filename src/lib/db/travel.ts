@@ -14,10 +14,10 @@ const primaryTripInclude = Prisma.validator<Prisma.TripInclude>()({
   bookings: true,
   documentNotes: true,
   memories: true,
-  memorySources: true,
-  memoryAssets: true,
   destinationIntel: true,
 });
+
+export type PrimaryTrip = Prisma.TripGetPayload<{ include: typeof primaryTripInclude }>;
 
 export function toDestinationIntel(trip: PrimaryTrip) {
   if (!trip.destinationIntel) return null;
@@ -31,8 +31,6 @@ export function toDestinationIntel(trip: PrimaryTrip) {
     source: intel.source
   };
 }
-
-export type PrimaryTrip = Prisma.TripGetPayload<{ include: typeof primaryTripInclude }>;
 
 export async function getOrCreateUser() {
   const user = await prisma.user.upsert({
@@ -80,11 +78,10 @@ export async function getPrimaryTrip(): Promise<PrimaryTrip | null> {
     itineraryDays: [...trip.itineraryDays].sort((a, b) => a.date.getTime() - b.date.getTime()),
     expenses: [...trip.expenses].sort((a, b) => b.spentAt.getTime() - a.spentAt.getTime()),
     bookings: [...trip.bookings].sort((a, b) => (a.startAt?.getTime() ?? 0) - (b.startAt?.getTime() ?? 0)),
-    documentNotes: [...trip.documentNotes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    documentNotes: [...trip.documentNotes].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
     memories: [...trip.memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-    memorySources: [...(trip.memorySources ?? [])].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
-    memoryAssets: [...(trip.memoryAssets ?? [])].sort((a, b) => (b.modifiedTime?.getTime() ?? b.createdAt.getTime()) - (a.modifiedTime?.getTime() ?? a.createdAt.getTime())),
   };
+
 }
 
 export async function getUserTrips() {

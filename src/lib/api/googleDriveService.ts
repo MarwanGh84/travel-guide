@@ -119,28 +119,37 @@ export async function fetchDriveFileContent(fileId: string) {
   });
 }
 
-export async function syncTripMemoryFolder(tripId: string, folderId: string) {
+export async function syncGlobalMemoryFolder(userId: string, folderId: string) {
   const files = await listFolderFiles(folderId);
   const normalized = files.map(normalizeDriveFile).filter((file): file is NonNullable<typeof file> => Boolean(file));
+  
+  const source = await prisma.driveMemorySource.findUnique({
+    where: { userId_provider_folderId: { userId, provider: "google-drive", folderId } },
+    select: { id: true },
+  });
+  if (!source) throw new Error("Memory source not found for this user.");
+
   await prisma.$transaction(async (tx) => {
-    await tx.memoryAsset.deleteMany({ where: { tripId, provider: "google-drive", sourceFolderId: folderId } });
+    await tx.driveMemoryAsset.deleteMany({ where: { userId, provider: "google-drive", sourceFolderId: folderId } });
     for (const file of normalized) {
-      await tx.memoryAsset.upsert({
+      await tx.driveMemoryAsset.upsert({
         where: { provider_providerFileId: { provider: "google-drive", providerFileId: file.providerFileId } },
         update: {
           ...file,
-          tripId,
+          userId,
+          sourceId: source.id,
           sourceFolderId: folderId,
         },
         create: {
           ...file,
-          tripId,
+          userId,
+          sourceId: source.id,
           sourceFolderId: folderId,
         },
       });
     }
-    await tx.tripMemorySource.updateMany({
-      where: { tripId, provider: "google-drive", folderId },
+    await tx.driveMemorySource.update({
+      where: { id: source.id },
       data: { lastSyncedAt: new Date() },
     });
   });

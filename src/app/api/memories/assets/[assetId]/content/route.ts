@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { getPrimaryTrip } from "@/lib/db/travel";
+import { getOrCreateUser } from "@/lib/db/travel";
 import { fetchDriveFileContent, isPreviewableDriveImage } from "@/lib/api/googleDriveService";
 
 export async function GET(_request: Request, context: RouteContext<"/api/memories/assets/[assetId]/content">) {
@@ -29,16 +29,19 @@ export async function GET(_request: Request, context: RouteContext<"/api/memorie
 }
 
 async function getLinkedDriveAsset(assetId: string) {
-  const trip = await getPrimaryTrip();
-  if (!trip) return null;
-  return prisma.memoryAsset.findFirst({
+  const user = await getOrCreateUser();
+  const sources = await prisma.driveMemorySource.findMany({
+    where: { userId: user.id, provider: "google-drive" },
+    select: { folderId: true },
+  });
+  const folderIds = sources.map(s => s.folderId);
+
+  return prisma.driveMemoryAsset.findFirst({
     where: {
       id: assetId,
-      tripId: trip.id,
+      userId: user.id,
       provider: "google-drive",
-      sourceFolderId: {
-        in: trip.memorySources.filter((item) => item.provider === "google-drive").map((item) => item.folderId),
-      },
+      sourceFolderId: { in: folderIds },
     },
   });
 }

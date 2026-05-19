@@ -24,7 +24,7 @@ import { getPlacesForTrip } from "@/lib/api/placesService";
 import {
   extractDriveFolderId,
   getDriveFolderMetadata,
-  syncTripMemoryFolder,
+  syncGlobalMemoryFolder,
 } from "@/lib/api/googleDriveService";
 
 const revalidateAll = () => {
@@ -380,15 +380,15 @@ export async function addMemory(formData: FormData) {
 }
 
 export async function connectMemoryFolder(formData: FormData) {
-  const trip = await getPrimaryTrip();
+  const user = await getOrCreateUser();
   const input = formString(formData, "folderUrlOrId");
   const folderId = extractDriveFolderId(input);
-  if (!trip || !folderId) redirect("/memories?drive=invalid-folder");
+  if (!folderId) redirect("/memories?drive=invalid-folder");
 
   try {
     const folder = await getDriveFolderMetadata(folderId);
-    const existing = await prisma.tripMemorySource.findFirst({
-      where: { tripId: trip.id, provider: "google-drive", folderId },
+    const existing = await prisma.driveMemorySource.findUnique({
+      where: { userId_provider_folderId: { userId: user.id, provider: "google-drive", folderId } },
       select: { id: true },
     });
     const sourceData = {
@@ -396,21 +396,21 @@ export async function connectMemoryFolder(formData: FormData) {
       folderUrl: folder.webViewLink ?? `https://drive.google.com/drive/folders/${folderId}`,
     };
     if (existing) {
-      await prisma.tripMemorySource.update({
+      await prisma.driveMemorySource.update({
         where: { id: existing.id },
         data: sourceData,
       });
     } else {
-      await prisma.tripMemorySource.create({
+      await prisma.driveMemorySource.create({
         data: {
-          tripId: trip.id,
+          userId: user.id,
           provider: "google-drive",
           folderId,
           ...sourceData,
         },
       });
     }
-    await syncTripMemoryFolder(trip.id, folderId);
+    await syncGlobalMemoryFolder(user.id, folderId);
     revalidatePath("/memories");
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -421,13 +421,15 @@ export async function connectMemoryFolder(formData: FormData) {
 }
 
 export async function syncMemoryFolder(formData: FormData) {
-  const trip = await getPrimaryTrip();
+  const user = await getOrCreateUser();
   const sourceId = formString(formData, "sourceId");
-  const source = trip?.memorySources.find((item) => item.provider === "google-drive" && item.id === sourceId);
-  if (!trip || !source) redirect("/memories?drive=no-folder");
+  const source = await prisma.driveMemorySource.findUnique({
+    where: { id: sourceId, userId: user.id },
+  });
+  if (!source) redirect("/memories?drive=no-folder");
 
   try {
-    await syncTripMemoryFolder(trip.id, source.folderId);
+    await syncGlobalMemoryFolder(user.id, source.folderId);
     revalidatePath("/memories");
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -438,14 +440,13 @@ export async function syncMemoryFolder(formData: FormData) {
 }
 
 export async function disconnectMemoryFolder(formData: FormData) {
-  const trip = await getPrimaryTrip();
+  const user = await getOrCreateUser();
   const sourceId = formString(formData, "sourceId");
-  const source = trip?.memorySources.find((item) => item.provider === "google-drive" && item.id === sourceId);
-  if (!trip || !source) redirect("/memories");
-  await prisma.$transaction([
-    prisma.tripMemorySource.deleteMany({ where: { id: source.id, tripId: trip.id, provider: "google-drive" } }),
-    prisma.memoryAsset.deleteMany({ where: { tripId: trip.id, provider: "google-drive", sourceFolderId: source.folderId } }),
-  ]);
+  const source = await prisma.driveMemorySource.findUnique({
+    where: { id: sourceId, userId: user.id },
+  });
+  if (!source) redirect("/memories");
+  await prisma.driveMemorySource.delete({ where: { id: source.id } });
   revalidatePath("/memories");
   redirect("/memories?drive=disconnected");
 }

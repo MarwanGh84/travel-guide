@@ -6,6 +6,8 @@ async function main() {
   await prisma.connectedAccount.deleteMany();
   await prisma.aiGenerationLog.deleteMany();
   await prisma.apiProviderLog.deleteMany();
+  await prisma.driveMemoryAsset.deleteMany();
+  await prisma.driveMemorySource.deleteMany();
   await prisma.memory.deleteMany();
   await prisma.documentNote.deleteMany();
   await prisma.booking.deleteMany();
