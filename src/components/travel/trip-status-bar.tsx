@@ -133,8 +133,8 @@ function StatusItem({ icon: Icon, label, value, bold = false, highlight = false 
     <div className="flex items-center gap-2.5">
        <Icon size={12} className={cn(highlight ? "text-emerald-600" : "text-muted-foreground/70")} />
        <div className="flex items-baseline gap-1.5">
-          <span className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground/50">{label}:</span>
-          <span className={cn("text-[10px] uppercase tracking-tight", bold ? "font-black text-foreground" : "font-bold text-muted-foreground")}>
+          <span className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground/50 lg:text-[10px]">{label}:</span>
+          <span className={cn("text-[10px] uppercase tracking-tight lg:text-[11px]", bold ? "font-black text-foreground" : "font-bold text-muted-foreground")}>
             {value}
           </span>
        </div>

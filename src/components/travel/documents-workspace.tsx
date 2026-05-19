@@ -143,7 +143,7 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                </header>
 
                {/* Editor Stage */}
-               <div className="flex-1 overflow-y-auto p-6 sm:p-12 lg:p-24 scrollbar-hide pb-20">
+               <div className="flex-1 overflow-y-auto p-6 sm:p-12 lg:p-16 xl:p-20 scrollbar-hide pb-20">
                   <div className="mx-auto max-w-2xl space-y-10 sm:space-y-12">
                      <header>
                         <Input

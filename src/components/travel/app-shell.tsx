@@ -132,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40">System</span>
               <span className="text-border">/</span>
             </div>
-            <span className="text-[11px] font-bold text-foreground truncate uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-foreground truncate uppercase tracking-wide lg:text-[12px]">
               {pathname === "/" ? "Dashboard" : pathname.split("/").filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" / ")}
             </span>
           </div>

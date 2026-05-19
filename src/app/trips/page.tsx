@@ -275,7 +275,7 @@ export default function TripsPage() {
         <form 
           key={activeBrief?.id || "new-trip"}
           action={createTrip} 
-          className="relative mx-auto flex min-h-full max-w-2xl flex-col p-6 sm:p-12 lg:p-24"
+          className="relative mx-auto flex min-h-full max-w-2xl flex-col p-6 sm:p-12 lg:p-16 xl:p-20"
         >
           <input type="hidden" name="destinationMode" value={destinationMode} />
           <TripPreparingOverlay />

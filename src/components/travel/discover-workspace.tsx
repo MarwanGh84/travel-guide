@@ -385,7 +385,7 @@ export function DiscoverWorkspace({ trip, places = [], destinations = [], select
 
       {/* 3. Detail Stage */}
       <main className={cn(
-        "relative flex-1 overflow-y-auto bg-background p-6 lg:p-12 xl:p-24 scrollbar-hide",
+        "relative flex-1 overflow-y-auto bg-background p-6 lg:p-12 xl:p-16 scrollbar-hide",
         !showDetail && "hidden lg:block"
       )}>
         <button 

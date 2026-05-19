@@ -296,7 +296,7 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
       {/* 2. Focused Plan & Intelligence Pane */}
       <main className="relative flex-1 bg-surface-2 overflow-hidden flex flex-col lg:flex-row">
         {/* Active Day Detail */}
-        <section className="flex-1 overflow-y-auto bg-background p-6 sm:p-12 lg:p-16 xl:p-24 border-r border-border scrollbar-hide">
+        <section className="flex-1 overflow-y-auto bg-background p-6 sm:p-12 lg:p-12 xl:p-16 border-r border-border scrollbar-hide">
            {activeDay ? (
              <div className="max-w-3xl mx-auto space-y-12 sm:space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <header>

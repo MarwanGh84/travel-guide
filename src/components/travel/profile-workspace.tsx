@@ -74,7 +74,7 @@ export function ProfileWorkspace({ profile }: { profile: ProfileShape }) {
       </aside>
 
       {/* 2. Main Detail Stage */}
-      <main className="relative flex-1 overflow-y-auto bg-background p-6 sm:p-12 lg:p-24 scrollbar-hide">
+      <main className="relative flex-1 overflow-y-auto bg-background p-6 sm:p-12 lg:p-16 xl:p-20 scrollbar-hide">
         <form action={saveProfile} className="mx-auto max-w-2xl flex flex-col min-h-full">
            <header className="mb-8 border-b border-border pb-8 flex flex-col gap-4 sm:mb-12 sm:pb-12 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
