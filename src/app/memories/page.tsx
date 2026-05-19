@@ -16,12 +16,12 @@ export default async function MemoriesPage({
   const google = await getGmailConnectionStatus();
   const params = await searchParams;
 
-  const memorySources = await prisma.driveMemorySource.findMany({
+  const memorySources = await (prisma as any).driveMemorySource?.findMany({
     where: { userId: user.id, provider: "google-drive" },
-  });
-  const memoryAssets = await prisma.driveMemoryAsset.findMany({
+  }) ?? [];
+  const memoryAssets = await (prisma as any).driveMemoryAsset?.findMany({
     where: { userId: user.id, provider: "google-drive" },
-  });
+  }) ?? [];
 
   return (
     <MemoriesWorkspace

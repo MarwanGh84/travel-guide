@@ -36,7 +36,7 @@ async function getLinkedDriveAsset(assetId: string) {
   });
   const folderIds = sources.map(s => s.folderId);
 
-  return prisma.driveMemoryAsset.findFirst({
+  return (prisma as any).driveMemoryAsset?.findFirst({
     where: {
       id: assetId,
       userId: user.id,
