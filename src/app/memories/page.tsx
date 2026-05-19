@@ -17,13 +17,13 @@ export default async function MemoriesPage({
   const params = await searchParams;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const memorySources = await (prisma as any).driveMemorySource?.findMany({
+  const memorySources = await prisma.driveMemorySource.findMany({
     where: { userId: user.id, provider: "google-drive" },
-  }) ?? [];
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const memoryAssets = await (prisma as any).driveMemoryAsset?.findMany({
+  const memoryAssets = await prisma.driveMemoryAsset.findMany({
     where: { userId: user.id, provider: "google-drive" },
-  }) ?? [];
+  });
 
   return (
     <MemoriesWorkspace
