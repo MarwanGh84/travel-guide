@@ -114,6 +114,7 @@ export const AiItineraryDayResponseSchema = z.object({
   backupOption: z.string().optional(),
   notes: z.string().optional(),
   placesIncluded: z.array(z.string()).optional(),
+  placeIds: z.array(z.string()).optional(),
 });
 
 export const AiItineraryResponseSchema = z.object({

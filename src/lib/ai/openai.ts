@@ -42,14 +42,38 @@ export async function structuredJson<T>(
 
 export async function generateFullItinerary(trip: TripDraft, savedPlaces: PlaceRecommendation[] = []) {
   const length = tripLength(trip.startDate, trip.endDate);
-  const selectedPlaceNames = savedPlaces.map((place) => place.name);
+  
+  // Build a compact context for the AI
+  const placeContext = savedPlaces.map(p => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    location: p.location,
+    isRepeatable: ["hotel", "stay", "accommodation", "airport", "station", "base", "transport"].some(c => 
+      p.category.toLowerCase().includes(c)
+    )
+  }));
+
+  const paceConstraints: Record<string, string> = {
+    slow: "2-3 key places/day",
+    medium: "3-4 key places/day",
+    packed: "4-6 key places/day"
+  };
 
   const result = await structuredJson<{ days: unknown[] }>(
     `Generate a high-density, professional day-by-day itinerary for exactly ${length} days as a JSON object with a "days" array.
-Return each day with this exact shape: { "theme": string, "morningPlan": string, "afternoonPlan": string, "eveningPlan": string, "restaurantIdeas": string[], "hiddenGem": string, "estimatedCost": number, "transportNotes": string, "backupOption": string, "notes": string, "placesIncluded": string[] }.
-The estimatedCost must be a realistic numeric daily out-of-pocket estimate for all travelers in USD.
-The placesIncluded field must use only exact names from this provider-backed list: ${JSON.stringify(selectedPlaceNames)}.
-Mention the chosen places by exact name inside the morningPlan, afternoonPlan, or eveningPlan text so the itinerary reads as a plan built from real selected locations, not generic prose.
+Return each day with this exact shape: { "theme": string, "morningPlan": string, "afternoonPlan": string, "eveningPlan": string, "restaurantIdeas": string[], "hiddenGem": string, "estimatedCost": number, "transportNotes": string, "backupOption": string, "notes": string, "placesIncluded": string[], "placeIds": string[] }.
+
+Constraints:
+1. PACE: The trip pace is "${trip.pace}". Aim for ${paceConstraints[trip.pace] || "3-4 key places/day"}.
+2. DEDUPLICATION: Do not repeat any place across different days unless "isRepeatable" is true.
+3. GROUNDING: Use ONLY the provided place names and IDs for real locations.
+4. JSON: The "placeIds" array must contain the IDs from the provided list. The "placesIncluded" should contain their names.
+5. PROSE: Mention the chosen places by name inside the morningPlan, afternoonPlan, or eveningPlan.
+
+Available provider-backed places:
+${JSON.stringify(placeContext, null, 2)}
+
 Trip: ${JSON.stringify(trip)}`,
     { days: [] },
     (value) => AiItineraryResponseSchema.parse(value),
@@ -82,6 +106,7 @@ export function normalizeItineraryDays(rawDays: unknown[], expectedLength: numbe
       afternoonPlan: stringValue(rawDay.afternoonPlan) || "Visit nearby points of interest or relax at a local cafe.",
       eveningPlan: stringValue(rawDay.eveningPlan) || "Enjoy a nice dinner and a walk through the city.",
       placesIncluded: stringArray(rawDay.placesIncluded),
+      placeIds: stringArray(rawDay.placeIds),
       restaurantIdeas: stringArray(rawDay.restaurantIdeas),
       hiddenGem: stringValue(rawDay.hiddenGem) || "",
       estimatedCost: numberValue(rawDay.estimatedCost) || 50,

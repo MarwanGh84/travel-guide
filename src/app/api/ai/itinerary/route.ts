@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { getPrimaryTrip, toPlaceRecommendations, toSelectedPlaceRecommendations, toTripDraft } from "@/lib/db/travel";
 import { AiItineraryRequestSchema } from "@/lib/validation/schemas";
 import { normalizeName } from "@/lib/utils";
+import type { QualitySummary, PlaceRecommendation } from "@/lib/types/travel";
+import { canonicalizeDayWithQuality } from "@/lib/ai/itineraryQuality";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -22,20 +24,38 @@ export async function POST(request: Request) {
     where: { tripId: trip.id, id: { in: selectedPlaceIds || [] } },
   });
   
-  const planningPlaces = places.length ? places : (selectedPlaces.length ? selectedPlaces : toPlaceRecommendations(trip));
-  const planningPlacesByName = new Map(planningPlaces.map((place) => [normalizeName(place.name), place]));
+  const planningPlaces = (places.length ? places : (selectedPlaces.length ? selectedPlaces : toPlaceRecommendations(trip))) as unknown as PlaceRecommendation[];
 
-  // @ts-expect-error - Complex type mapping between Trip and OpenAI request
   const result = await generateFullItinerary(tripDraft, planningPlaces);
 
   if (save && result.ok) {
-    const allRecommendations = await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } });
-    const recommendationsByName = new Map(allRecommendations.map(r => [normalizeName(r.name), r.id]));
+    const allRecommendations = (await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } })) as unknown as PlaceRecommendation[];
+    const recommendationsById = new Map(allRecommendations.map(r => [r.id, r]));
+    const recommendationsByName = new Map(allRecommendations.map(r => [normalizeName(r.name), r]));
+
+    const qualitySummary: QualitySummary = {
+      duplicateCount: 0,
+      repairedDuplicateCount: 0,
+      mappedPlaceCount: 0,
+      aiOnlyPointCount: 0,
+      warnings: [],
+    };
+
+    const usedNonRepeatableIds = new Set<string>();
 
     await prisma.$transaction(async (tx) => {
       await tx.itineraryDay.deleteMany({ where: { tripId: trip.id } });
-      for (const [dayIndex, day] of result.data.entries()) {
-        const canonicalPlaces = canonicalizeItineraryPlaces(day.placesIncluded, planningPlaces, planningPlacesByName, dayIndex);
+      for (const day of result.data) {
+        const canonicalPlaces = canonicalizeDayWithQuality(
+          day,
+          planningPlaces,
+          recommendationsById,
+          recommendationsByName,
+          usedNonRepeatableIds,
+          qualitySummary,
+          tripDraft.pace
+        );
+
         await tx.itineraryDay.create({
           data: {
             tripId: trip.id,
@@ -53,7 +73,7 @@ export async function POST(request: Request) {
             items: {
               create: canonicalPlaces.map((place, index) => ({
                 title: place.name,
-                placeRecommendationId: recommendationsByName.get(normalizeName(place.name)) ?? null,
+                placeRecommendationId: place.id,
                 timeOfDay: index === 0 ? "morning" : index === 1 ? "afternoon" : "evening",
                 description: "Provider-backed place selected for itinerary planning.",
                 sortOrder: index,
@@ -81,6 +101,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...result,
+      quality: qualitySummary,
       data: savedDays.map((day) => ({
         id: day.id,
         date: day.date.toISOString().slice(0, 10),
@@ -132,31 +153,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(result);
-}
-
-function canonicalizeItineraryPlaces<T extends { id: string; name: string }>(
-  requestedNames: string[],
-  planningPlaces: T[],
-  planningPlacesByName: Map<string, T>,
-  dayIndex: number,
-) {
-  const matched = requestedNames
-    .map((name) => planningPlacesByName.get(normalizeName(name)))
-    .filter((place): place is T => Boolean(place));
-
-  const uniqueMatched = dedupePlaces(matched);
-  if (uniqueMatched.length > 0 || planningPlaces.length === 0) return uniqueMatched;
-
-  const start = (dayIndex * 3) % planningPlaces.length;
-  const fallback = Array.from({ length: Math.min(3, planningPlaces.length) }, (_, offset) => planningPlaces[(start + offset) % planningPlaces.length]);
-  return dedupePlaces(fallback);
-}
-
-function dedupePlaces<T extends { id: string }>(places: T[]) {
-  const seen = new Set<string>();
-  return places.filter((place) => {
-    if (seen.has(place.id)) return false;
-    seen.add(place.id);
-    return true;
-  });
 }

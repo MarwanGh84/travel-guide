@@ -75,6 +75,7 @@ export type ItineraryDay = {
   afternoonPlan: string;
   eveningPlan: string;
   placesIncluded: string[];
+  placeIds?: string[];
   places?: Array<{
     id: string;
     title: string;
@@ -88,6 +89,14 @@ export type ItineraryDay = {
   transportNotes: string;
   backupOption: string;
   notes: string;
+};
+
+export type QualitySummary = {
+  duplicateCount: number;
+  repairedDuplicateCount: number;
+  mappedPlaceCount: number;
+  aiOnlyPointCount: number;
+  warnings: string[];
 };
 
 export type BudgetCategory = {
