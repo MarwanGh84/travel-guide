@@ -36,6 +36,7 @@ async function getLinkedDriveAsset(assetId: string) {
   });
   const folderIds = sources.map(s => s.folderId);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (prisma as any).driveMemoryAsset?.findFirst({
     where: {
       id: assetId,
