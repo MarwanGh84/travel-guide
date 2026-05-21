@@ -789,6 +789,20 @@ export async function deleteItineraryItem(itemId: string) {
   }
 }
 
+export async function updateItineraryItem(itemId: string, title: string) {
+  try {
+    await prisma.itineraryItem.update({
+      where: { id: itemId },
+      data: { title },
+    });
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    console.error("Update Item Error:", error);
+    return { ok: false, message: "Failed to update item" };
+  }
+}
+
 import { getLiveFlightStatus } from "@/lib/api/flightService";
 
 export async function fetchFlightTelemetry(flightIdentifier: string, date: string) {
