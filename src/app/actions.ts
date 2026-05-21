@@ -13,6 +13,7 @@ import {
   getPrimaryTrip,
   parseDateField,
   parseNumberField,
+  parseBooleanField,
   toTripDraft,
 } from "@/lib/db/travel";
 import { TripDraftSchema } from "@/lib/validation/schemas";
@@ -309,6 +310,8 @@ export async function addDocumentNote(formData: FormData) {
   if (!trip) return;
   const uploadedUrl = await saveUploadedFile(formData.get("file"));
   const referenceLink = formString(formData, "link");
+  const expiryDate = formData.get("expiryDate") ? parseDateField(formData.get("expiryDate")) : null;
+
   await prisma.documentNote.create({
     data: {
       tripId: trip.id,
@@ -316,6 +319,11 @@ export async function addDocumentNote(formData: FormData) {
       title: formString(formData, "title", "Untitled note"),
       content: formString(formData, "content"),
       link: uploadedUrl || referenceLink,
+      documentType: formString(formData, "documentType"),
+      expiryDate,
+      isSensitive: parseBooleanField(formData.get("isSensitive")),
+      travelerName: formString(formData, "travelerName"),
+      issuingCountry: formString(formData, "issuingCountry"),
     },
   });
   revalidatePath("/documents");
@@ -328,6 +336,8 @@ export async function updateDocumentNote(formData: FormData) {
   const uploadedUrl = await saveUploadedFile(formData.get("file"));
   const referenceLink = formString(formData, "link");
   const link = uploadedUrl || referenceLink;
+  const expiryDate = formData.get("expiryDate") ? parseDateField(formData.get("expiryDate")) : null;
+
   await prisma.documentNote.updateMany({
     where: { id: documentNoteId, tripId: trip.id },
     data: {
@@ -335,6 +345,11 @@ export async function updateDocumentNote(formData: FormData) {
       title: formString(formData, "title", "Untitled note"),
       content: formString(formData, "content"),
       ...(link ? { link } : {}),
+      documentType: formString(formData, "documentType"),
+      expiryDate,
+      isSensitive: parseBooleanField(formData.get("isSensitive")),
+      travelerName: formString(formData, "travelerName"),
+      issuingCountry: formString(formData, "issuingCountry"),
     },
   });
   revalidatePath("/documents");
@@ -718,6 +733,87 @@ export async function planDestination(formData: FormData) {
   revalidateAll();
 }
 
+export async function shuffleItineraryDays(day1Id: string, day2Id: string) {
+  const trip = await getPrimaryTrip();
+  if (!trip) return { ok: false, message: "No active trip" };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const day1 = await tx.itineraryDay.findUnique({ where: { id: day1Id }, include: { items: true } });
+      const day2 = await tx.itineraryDay.findUnique({ where: { id: day2Id }, include: { items: true } });
+
+      if (!day1 || !day2) throw new Error("Days not found");
+
+      const date1 = day1.date;
+      const date2 = day2.date;
+
+      const allDays = await tx.itineraryDay.findMany({ 
+        where: { tripId: trip.id }, 
+        orderBy: { date: "asc" }, 
+        select: { id: true } 
+      });
+
+      const d1Idx = allDays.findIndex(d => d.id === day1Id) + 1;
+      const d2Idx = allDays.findIndex(d => d.id === day2Id) + 1;
+
+      const newTheme1 = day1.theme.replace(/Day \d+/gi, `Day ${d2Idx}`);
+      const newTheme2 = day2.theme.replace(/Day \d+/gi, `Day ${d1Idx}`);
+
+      await tx.itineraryDay.update({
+        where: { id: day1Id },
+        data: { date: date2, theme: newTheme1 }
+      });
+
+      await tx.itineraryDay.update({
+        where: { id: day2Id },
+        data: { date: date1, theme: newTheme2 }
+      });
+    });
+
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    console.error("Shuffle Error:", error);
+    return { ok: false, message: "Failed to perform tactical shuffle" };
+  }
+}
+
+export async function deleteItineraryItem(itemId: string) {
+  try {
+    await prisma.itineraryItem.delete({ where: { id: itemId } });
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    console.error("Delete Item Error:", error);
+    return { ok: false, message: "Failed to delete item" };
+  }
+}
+
+import { getLiveFlightStatus } from "@/lib/api/flightService";
+
+export async function fetchFlightTelemetry(flightIdentifier: string, date: string) {
+  try {
+    const telemetry = await getLiveFlightStatus(flightIdentifier, date);
+    return { ok: true, data: telemetry };
+  } catch (error) {
+    console.error("Fetch Telemetry Action Error:", error);
+    return { ok: false, message: "Could not sync telemetry." };
+  }
+}
+
+import { searchLiveEvents } from "@/lib/api/eventsService";
+
+export async function fetchLiveEvents(query: string, date: string) {
+  try {
+    const events = await searchLiveEvents(query, date);
+    return { ok: true, data: events };
+  } catch (error) {
+    console.error("Fetch Live Events Action Error:", error);
+    return { ok: false, message: "Could not fetch events." };
+  }
+}
+
+
 export async function savePlaceForLater(formData: FormData) {
   const trip = await getPrimaryTrip();
   const placeId = formString(formData, "placeId");
@@ -741,6 +837,63 @@ export async function savePlaceForLater(formData: FormData) {
       },
     });
   }
+
+  revalidateAll();
+}
+
+export async function addSavedPlaceToDay(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const placeId = formString(formData, "placeId");
+  const dayId = formString(formData, "dayId");
+  const timeOfDay = formString(formData, "timeOfDay") as "morning" | "afternoon" | "evening";
+
+  if (!trip || !placeId || !dayId || !timeOfDay) return;
+
+  const place = await prisma.placeRecommendation.findFirst({ where: { id: placeId, tripId: trip.id } });
+  if (!place) return;
+
+  // Duplicate check
+  const REPEATABLE_CATEGORIES = ["hotel", "stay", "accommodation", "airport", "station", "base", "transport"];
+  const isRepeatable = REPEATABLE_CATEGORIES.some(c => place.category.toLowerCase().includes(c));
+
+  if (!isRepeatable) {
+    const existing = await prisma.itineraryItem.findFirst({
+      where: {
+        placeRecommendationId: place.id,
+        itineraryDay: { tripId: trip.id }
+      }
+    });
+    if (existing) {
+      throw new Error("Already in itinerary");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Get max sort order for the segment
+    const maxItem = await tx.itineraryItem.findFirst({
+      where: { itineraryDayId: dayId, timeOfDay },
+      orderBy: { sortOrder: "desc" },
+    });
+    const sortOrder = (maxItem?.sortOrder ?? -1) + 1;
+
+    await tx.itineraryItem.create({
+      data: {
+        itineraryDayId: dayId,
+        title: place.name,
+        placeRecommendationId: place.id,
+        timeOfDay,
+        description: "Manually added from discovery.",
+        sortOrder,
+      },
+    });
+
+    if (trip.status === "itinerary_approved") {
+      await tx.trip.update({
+        where: { id: trip.id },
+        data: { status: "planning", itineraryApprovedAt: null },
+      });
+    }
+  });
 
   revalidateAll();
 }
@@ -771,6 +924,21 @@ function normalizePlaceKey(value: string) {
   return value.trim().toLowerCase();
 }
 
+export async function updateChecklistItemStatus(formData: FormData) {
+  const trip = await getPrimaryTrip();
+  const itemId = formString(formData, "itemId");
+  const status = formString(formData, "status");
+  
+  if (!trip || !itemId) return;
+
+  await prisma.bookingChecklistItem.update({
+    where: { id: itemId, tripId: trip.id },
+    data: { status },
+  });
+
+  revalidatePath("/bookings");
+}
+
 function mergeDiscoveredPlaces(
   googlePlaces: Awaited<ReturnType<typeof getPlacesForTrip>>,
   aggregatedPlaces: Awaited<ReturnType<typeof aggregateIntelligence>>["places"],
@@ -798,6 +966,7 @@ function toPersistedPlaceData(place: PlaceRecommendation | NormalizedPlace): {
   location: string;
   latitude?: number;
   longitude?: number;
+  photoUrl?: string;
   whyRecommended: string;
   hiddenGemScore: number;
   isHiddenGem: boolean;
@@ -813,6 +982,7 @@ function toPersistedPlaceData(place: PlaceRecommendation | NormalizedPlace): {
       location: place.location,
       latitude: place.coordinates?.lat,
       longitude: place.coordinates?.lng,
+      photoUrl: place.photoUrl,
       whyRecommended: place.whyRecommended,
       hiddenGemScore: place.hiddenGemScore,
       isHiddenGem: place.isHiddenGem,
@@ -829,6 +999,7 @@ function toPersistedPlaceData(place: PlaceRecommendation | NormalizedPlace): {
     location: place.address ?? "Local area",
     latitude: place.latitude,
     longitude: place.longitude,
+    photoUrl: place.photoUrl,
     whyRecommended: `Discovered via ${place.source} intelligence pipeline.`,
     hiddenGemScore: place.hiddenGemScore || 0,
     isHiddenGem: (place.hiddenGemScore || 0) >= 75,

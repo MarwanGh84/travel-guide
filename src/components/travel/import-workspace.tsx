@@ -102,8 +102,8 @@ export function ImportWorkspace() {
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
            <span className="text-[10px] font-black uppercase tracking-widest text-foreground">Import Pipeline</span>
            <div className="flex gap-2">
-              <button onClick={() => setActiveTab("gmail")} className={cn("text-[9px] font-bold uppercase", activeTab === "gmail" ? "text-black" : "text-muted")}>Gmail</button>
-              <button onClick={() => setActiveTab("manual")} className={cn("text-[9px] font-bold uppercase", activeTab === "manual" ? "text-black" : "text-muted")}>Paste</button>
+              <button onClick={() => setActiveTab("gmail")} className={cn("text-[9px] font-bold uppercase", activeTab === "gmail" ? "text-foreground" : "text-muted")}>Gmail</button>
+              <button onClick={() => setActiveTab("manual")} className={cn("text-[9px] font-bold uppercase", activeTab === "manual" ? "text-foreground" : "text-muted")}>Paste</button>
            </div>
         </div>
 
@@ -129,7 +129,7 @@ export function ImportWorkspace() {
                         body: JSON.stringify({ query: gmailQuery, maxResults: 8 }),
                       }))}
                       disabled={loading || !status?.connected}
-                      className="flex h-8 w-full items-center justify-center gap-2 rounded-md bg-black text-[10px] font-bold uppercase tracking-widest text-white hover:bg-zinc-800 disabled:opacity-30"
+                      className="flex h-8 w-full items-center justify-center gap-2 rounded-md bg-foreground text-[10px] font-bold uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-30"
                    >
                       <Search size={12} /> Scan Inboxes
                    </button>
@@ -150,7 +150,7 @@ export function ImportWorkspace() {
                         body: JSON.stringify({ body: manualBody }),
                       }))}
                       disabled={loading || !manualBody.trim()}
-                      className="flex h-8 w-full items-center justify-center gap-2 rounded-md bg-black text-[10px] font-bold uppercase tracking-widest text-white hover:bg-zinc-800"
+                      className="flex h-8 w-full items-center justify-center gap-2 rounded-md bg-foreground text-[10px] font-bold uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200"
                    >
                       <Download size={12} /> Parse Text
                    </button>
@@ -180,7 +180,7 @@ export function ImportWorkspace() {
                            <Mail size={16} />
                         </div>
                         {isSelected && (
-                          <div className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-black text-[8px] font-black text-white shadow-lg">
+                          <div className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-foreground text-[8px] font-black text-background shadow-lg">
                              <Check size={8} strokeWidth={4} />
                           </div>
                         )}
@@ -219,7 +219,7 @@ export function ImportWorkspace() {
            <button 
               onClick={saveSelected}
               disabled={loading || selectedImports.length === 0}
-              className="flex h-11 w-full items-center justify-center gap-3 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 disabled:opacity-30 transition-all"
+              className="flex h-11 w-full items-center justify-center gap-3 rounded-lg bg-foreground text-[10px] font-black uppercase tracking-widest text-background shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-30 transition-all"
            >
               <Save size={14} /> Commit {selectedImports.length} Records
            </button>
@@ -264,7 +264,7 @@ export function ImportWorkspace() {
                         disabled={activeImport.confidenceLabel === "rejected"}
                         className={cn(
                           "grid size-12 shrink-0 place-items-center rounded-xl border transition-all shadow-sm",
-                          selected.has(selectedId) ? "bg-black text-white border-black" : "bg-white text-muted border-border hover:border-black hover:text-black",
+                          selected.has(selectedId) ? "bg-foreground text-background border-foreground" : "bg-background text-muted border-border hover:border-foreground hover:text-foreground",
                           activeImport.confidenceLabel === "rejected" && "cursor-not-allowed opacity-40 hover:border-border hover:text-muted",
                         )}
                      >

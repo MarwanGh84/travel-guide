@@ -12,12 +12,17 @@ export type WeatherSummary = {
     maxC: number;
     rainChance: number;
     weatherCode: number;
+    windSpeedKmh: number;
     label: string;
+  }>;
+  hourly?: Array<{
+    time: string;
+    tempC: number;
+    rainChance: number;
+    weatherCode: number;
   }>;
   source: DataSource;
 };
-
-type ForecastResponse = ReturnType<typeof ForecastResponseSchema.parse>;
 
 export async function getWeatherSummary(destination: string): Promise<WeatherSummary> {
   try {
@@ -27,8 +32,9 @@ export async function getWeatherSummary(destination: string): Promise<WeatherSum
     const params = new URLSearchParams({
       latitude: String(place.latitude),
       longitude: String(place.longitude),
-      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-      forecast_days: "7",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max",
+      hourly: "temperature_2m,precipitation_probability,weather_code",
+      forecast_days: "14",
       timezone: place.timezone ?? "auto",
     });
 
@@ -37,8 +43,9 @@ export async function getWeatherSummary(destination: string): Promise<WeatherSum
     });
 
     if (!response.ok) return fallbackWeather(destination, `Open-Meteo forecast failed with ${response.status}.`);
-    const data = ForecastResponseSchema.parse(await response.json());
+    const data = await response.json();
     const daily = normalizeDaily(data);
+    const hourly = normalizeHourly(data);
     if (!daily.length) return fallbackWeather(destination, "Open-Meteo returned no daily forecast rows.");
 
     const min = Math.round(Math.min(...daily.map((day) => day.minC)));
@@ -47,10 +54,11 @@ export async function getWeatherSummary(destination: string): Promise<WeatherSum
 
     return {
       destination: `${place.name}${place.country ? `, ${place.country}` : ""}`,
-      summary: `${daily[0].label} today, averaging ${rain}% rain risk across the next week.`,
+      summary: `${daily[0].label} today, averaging ${rain}% rain risk across the available forecast.`,
       temperatureRange: `${min}-${max} C`,
       rainRisk: rain < 25 ? "Low" : rain < 55 ? "Medium" : "High",
       daily,
+      hourly,
       source: {
         provider: "open-meteo",
         isMock: false,
@@ -88,20 +96,50 @@ function geocodeCandidates(destination: string) {
   return [...new Set([raw, withoutSymbols, beforeComma, beforeAnd, firstWords, firstWord].filter((item): item is string => Boolean(item)))];
 }
 
-function normalizeDaily(data: ForecastResponse): WeatherSummary["daily"] {
+interface OpenMeteoResponse {
+  daily: {
+    time: string[];
+    weather_code: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+    precipitation_probability_max: number[];
+    wind_speed_10m_max: number[];
+  };
+  hourly: {
+    time: string[];
+    temperature_2m: number[];
+    precipitation_probability: number[];
+    weather_code: number[];
+  };
+}
+
+function normalizeDaily(data: OpenMeteoResponse): WeatherSummary["daily"] {
   const daily = data.daily;
   if (!daily?.time?.length) return [];
-  return daily.time.map((date, index) => {
+  return daily.time.map((date: string, index: number) => {
     const weatherCode = daily.weather_code?.[index] ?? 0;
     return {
       date,
       minC: Math.round(daily.temperature_2m_min?.[index] ?? 0),
       maxC: Math.round(daily.temperature_2m_max?.[index] ?? 0),
       rainChance: Math.round(daily.precipitation_probability_max?.[index] ?? 0),
+      windSpeedKmh: Math.round(daily.wind_speed_10m_max?.[index] ?? 0),
       weatherCode,
       label: weatherLabel(weatherCode),
     };
   });
+}
+
+function normalizeHourly(data: OpenMeteoResponse): WeatherSummary["hourly"] {
+  const hourly = data.hourly;
+  if (!hourly?.time?.length) return [];
+  // Return next 24 hours from current index or start
+  return hourly.time.slice(0, 24).map((time: string, index: number) => ({
+    time,
+    tempC: Math.round(hourly.temperature_2m?.[index] ?? 0),
+    rainChance: Math.round(hourly.precipitation_probability?.[index] ?? 0),
+    weatherCode: hourly.weather_code?.[index] ?? 0
+  }));
 }
 
 function fallbackWeather(destination: string, note: string): WeatherSummary {

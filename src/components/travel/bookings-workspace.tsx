@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Plus, 
   Trash2, 
@@ -14,12 +14,24 @@ import {
   Search,
   Filter,
   LucideIcon,
-  Download
+  Download,
+  ShieldCheck,
+  Sparkles,
+  FileText,
+  User,
+  Wifi,
+  Coins,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Zap,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { addBooking, deleteBooking } from "@/app/actions";
+import { addBooking, deleteBooking, updateChecklistItemStatus, fetchFlightTelemetry } from "@/app/actions";
+import type { FlightTelemetry } from "@/lib/api/flightService";
 
 type Booking = {
   id: string;
@@ -34,15 +46,46 @@ type Booking = {
   importGroupId?: string | null;
 };
 
+type BookingChecklistItem = {
+  id: string;
+  key: string;
+  label: string;
+  status: string;
+  notes?: string | null;
+};
+
 type BookingsWorkspaceProps = {
   bookings: Booking[];
   tripName: string;
+  checklist: BookingChecklistItem[];
+  itineraryApproved: boolean;
 };
 
-export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps) {
+export function BookingsWorkspace({ bookings, tripName, checklist, itineraryApproved }: BookingsWorkspaceProps) {
   const router = useRouter();
   const [filterType, setFilterType] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(true);
+  const [telemetry, setTelemetry] = useState<Record<string, FlightTelemetry>>({});
+
+  useEffect(() => {
+    const flights = bookings.filter(b => b.type === "Flight" && b.date);
+    console.log(`[BookingsWorkspace] Found ${flights.length} flights to track.`);
+    
+    flights.forEach(async (flight) => {
+       if (flight.date) {
+         console.log(`[BookingsWorkspace] Syncing telemetry for: ${flight.title} on ${flight.date}`);
+         const res = await fetchFlightTelemetry(flight.title, flight.date);
+         if (res.ok && res.data) {
+            console.log(`[BookingsWorkspace] Received telemetry for ${flight.id}:`, res.data);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setTelemetry(prev => ({ ...prev, [flight.id]: res.data as any }));
+         } else {
+            console.warn(`[BookingsWorkspace] No telemetry found or error for ${flight.id}:`, res.message);
+         }
+       }
+    });
+  }, [bookings]);
 
   const icons: Record<string, LucideIcon> = {
     Flight: Plane,
@@ -65,6 +108,9 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
     URL.revokeObjectURL(url);
   };
 
+  const checklistCompleted = checklist.filter(item => item.status === "done" || item.status === "not_needed").length;
+  const stayBookingMissing = itineraryApproved && !checklist.find(item => item.key === "stay" && (item.status === "done" || item.status === "not_needed"));
+
   return (
     <div className="flex h-full w-full flex-col overflow-y-auto lg:overflow-hidden bg-background">
       {/* Header Command Area */}
@@ -84,7 +130,7 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                       onClick={() => setFilterType(type)}
                       className={cn(
                         "h-7 rounded-md px-3 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
-                        filterType === type ? "bg-black text-white" : "text-muted hover:bg-surface-2"
+                        filterType === type ? "bg-foreground text-background" : "text-muted hover:bg-surface-2"
                       )}
                    >
                       {type}
@@ -92,28 +138,116 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                  ))}
               </div>
            </div>
+           <div className="hidden h-8 w-px bg-border/50 sm:block" />
+           <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setShowChecklist(!showChecklist)}
+                className={cn(
+                  "flex h-8 items-center gap-2 rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm",
+                  showChecklist ? "bg-foreground text-background" : "bg-surface-2 text-muted hover:bg-border"
+                )}
+              >
+                Checklist {checklistCompleted}/{checklist.length}
+              </button>
+           </div>
         </div>
 
         <div className="flex items-center gap-2">
            <button 
               onClick={exportCsv}
-              className="flex h-8 flex-1 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-black transition-all sm:flex-none"
+              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-[10px] font-black uppercase tracking-widest text-muted hover:text-foreground hover:border-foreground transition-all active:scale-95 sm:flex-none"
            >
               <Download size={12} /> <span className="hidden xs:inline">CSV</span>
            </button>
            <Link href="/imports" className="flex-1 sm:flex-none">
-              <button className="flex h-8 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-widest text-foreground hover:bg-surface transition-all">
+              <button className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-surface transition-all active:scale-95">
                  <Mail size={12} /> <span className="hidden xs:inline">Sync</span><span className="xs:hidden">Sync</span>
               </button>
            </Link>
            <button
-             onClick={() => setShowAddForm((current) => !current)}
-             className="flex h-8 flex-1 items-center justify-center gap-2 rounded-md bg-black px-3 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-zinc-800 transition-all sm:flex-none shadow-lg"
+             onClick={() => setShowAddForm((current: boolean) => !current)}
+             className="flex h-9 flex-1 items-center justify-center gap-2 rounded-md bg-foreground px-4 text-[10px] font-black uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all active:scale-95 sm:flex-none shadow-lg"
            >
               <Plus size={12} /> <span className="hidden xs:inline">New Record</span><span className="xs:hidden">Add</span>
            </button>
         </div>
       </header>
+
+      {stayBookingMissing && (
+        <div className="bg-rose-50 border-b border-rose-100 px-6 py-3 flex items-center gap-3">
+          <div className="size-2 rounded-full bg-rose-500 animate-pulse" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">
+            Itinerary approved but Hotel / Stay booking is still marked as needed.
+          </p>
+        </div>
+      )}
+
+      {showChecklist && checklist.length > 0 && (
+        <section className="shrink-0 border-b border-border bg-surface/30 p-2 overflow-x-auto no-scrollbar scrollbar-hide">
+          <div className="flex items-center gap-2 min-w-max px-4 h-16">
+            <div className="flex flex-col gap-0.5 pr-4 border-r border-border shrink-0">
+               <span className="text-[8px] font-black uppercase tracking-widest text-muted">Readiness</span>
+               <span className="text-[10px] font-black uppercase text-foreground">{checklistCompleted} / {checklist.length}</span>
+            </div>
+            {checklist.map((item) => {
+              const ItemIcon = {
+                flights: Plane,
+                stay: Hotel,
+                transfer: Car,
+                insurance: ShieldCheck,
+                activities: Sparkles,
+                restaurants: Utensils,
+                car: Car,
+                visa: FileText,
+                passport: User,
+                sim: Wifi,
+                money: Coins
+              }[item.key] || Ticket;
+
+              return (
+                <div key={item.id} className="group relative flex items-center gap-3 rounded-lg border border-border bg-background p-2 transition-all hover:border-foreground shadow-sm h-12">
+                   <div className={cn(
+                     "grid size-8 place-items-center rounded-md border",
+                     item.status === "done" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                     item.status === "not_needed" ? "bg-surface-2 text-muted border-border/50" :
+                     "bg-surface-2 text-muted border-border"
+                   )}>
+                      <ItemIcon size={14} />
+                   </div>
+                   <div className="flex flex-col">
+                      <span className="text-[9px] font-black uppercase tracking-tight text-foreground truncate max-w-[80px]">{item.label}</span>
+                      <div className="flex gap-1.5 mt-1">
+                         {[
+                           { val: "needed", icon: Clock, color: "text-amber-500" },
+                           { val: "done", icon: CheckCircle2, color: "text-emerald-500" },
+                           { val: "not_needed", icon: XCircle, color: "text-muted-foreground/30" }
+                         ].map((s) => (
+                           <button
+                             key={s.val}
+                             onClick={async () => {
+                               const formData = new FormData();
+                               formData.set("itemId", item.id);
+                               formData.set("status", s.val);
+                               await updateChecklistItemStatus(formData);
+                               router.refresh();
+                             }}
+                             className={cn(
+                               "transition-all active:scale-90",
+                               item.status === s.val ? s.color : "opacity-20 hover:opacity-100"
+                             )}
+                             title={s.val}
+                           >
+                              <s.icon size={10} />
+                           </button>
+                         ))}
+                      </div>
+                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {showAddForm && (
         <form
@@ -136,7 +270,7 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
           <input name="notes" placeholder="Notes" className="h-10 rounded-md border border-border bg-surface px-3 text-sm md:h-9 md:text-xs" />
           <div className="md:col-span-4 flex justify-end gap-2 mt-2">
             <button type="button" onClick={() => setShowAddForm(false)} className="h-9 flex-1 rounded-md border border-border px-4 text-[10px] font-bold uppercase tracking-widest text-muted md:flex-none">Cancel</button>
-            <button type="submit" className="h-9 flex-1 rounded-md bg-black px-4 text-[10px] font-black uppercase tracking-widest text-white md:flex-none">Save Record</button>
+            <button type="submit" className="h-9 flex-1 rounded-md bg-foreground px-4 text-[10px] font-black uppercase tracking-widest text-background md:flex-none">Save Record</button>
           </div>
         </form>
       )}
@@ -161,7 +295,7 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                   return (
                     <tr key={b.id} className="group hover:bg-surface/50 transition-colors cursor-default">
                        <td className="px-6 py-4">
-                          <div className="grid size-8 place-items-center rounded-lg bg-surface-2 border border-border text-muted">
+                          <div className="grid size-8 place-items-center rounded-lg bg-surface-2 border border-border text-foreground">
                              <Icon size={14} />
                           </div>
                        </td>
@@ -171,6 +305,27 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                              <span className="text-[10px] uppercase font-bold tracking-widest text-muted mt-0.5">
                                {b.type}{b.importGroupId ? " · Gmail imported" : ""}
                              </span>
+                             {telemetry[b.id] && (
+                               <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  <div className={cn(
+                                    "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest",
+                                    telemetry[b.id].status.toLowerCase().includes("delayed") ? "bg-rose-500/10 text-rose-600 dark:text-rose-500 border border-rose-500/20" : 
+                                    telemetry[b.id].status.toLowerCase().includes("landed") ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-500 border border-zinc-500/20" :
+                                    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20"
+                                  )}>
+                                     <Activity size={10} className="animate-pulse" />
+                                     {telemetry[b.id].status}
+                                  </div>
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-muted">
+                                     {telemetry[b.id].departure.airport} → {telemetry[b.id].arrival.airport}
+                                  </span>
+                                  {(telemetry[b.id].departure.terminal || telemetry[b.id].departure.gate) && (
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-muted/60 border-l border-border pl-2">
+                                       Gate {telemetry[b.id].departure.gate || "TBD"} (T{telemetry[b.id].departure.terminal || "---"})
+                                    </span>
+                                  )}
+                               </div>
+                             )}
                           </div>
                        </td>
                        <td className="px-6 py-4">
@@ -184,11 +339,11 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                        </td>
                        <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                             <span className="text-[10px] font-mono font-bold text-muted bg-surface-2 px-1.5 py-0.5 rounded border border-border">
+                             <span className="text-[10px] font-mono font-bold text-muted bg-surface-3 px-1.5 py-0.5 rounded border border-border">
                                 {b.confirmationNumber || "NO_REF"}
                              </span>
                              {b.link && (
-                               <a href={b.link} target="_blank" className="text-muted hover:text-black transition-colors">
+                               <a href={b.link} target="_blank" className="text-muted hover:text-foreground transition-colors">
                                   <ExternalLink size={12} />
                                </a>
                              )}
@@ -217,7 +372,7 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                 <div key={b.id} className="rounded-xl border border-border bg-surface p-4 shadow-sm">
                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                         <div className="grid size-8 place-items-center rounded-lg bg-background border border-border text-black">
+                         <div className="grid size-8 place-items-center rounded-lg bg-background border border-border text-foreground">
                             <Icon size={14} />
                          </div>
                          <div className="min-w-0">
@@ -248,7 +403,7 @@ export function BookingsWorkspace({ bookings, tripName }: BookingsWorkspaceProps
                             {b.confirmationNumber || "NO_REF"}
                          </span>
                          {b.link && (
-                            <a href={b.link} target="_blank" className="p-1.5 rounded-md bg-background border border-border text-black">
+                            <a href={b.link} target="_blank" className="p-1.5 rounded-md bg-background border border-border text-foreground">
                                <ExternalLink size={10} />
                             </a>
                          )}

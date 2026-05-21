@@ -46,12 +46,12 @@ export default async function Home() {
           <div className="mx-auto mb-6 grid size-16 place-items-center rounded-2xl bg-surface-2 ring-1 ring-border">
              <Sparkles size={32} strokeWidth={1.5} />
           </div>
-          <h1 className="text-3xl font-black tracking-tight">Design your journey.</h1>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Design your journey.</h1>
           <p className="mt-4 text-sm text-muted leading-relaxed">
             Initialize your trip profile to unlock the high-density itinerary builder, AI discovery, and automated budgeting tool.
           </p>
           <Link href="/trips">
-            <button className="mt-8 h-11 rounded-lg bg-black px-8 text-xs font-bold uppercase tracking-widest text-white hover:bg-zinc-800 transition-all">
+            <button className="mt-8 h-11 rounded-lg bg-foreground px-8 text-xs font-bold uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all">
               Initialize Workspace
             </button>
           </Link>
@@ -95,25 +95,25 @@ export default async function Home() {
       <header className="mb-6 flex shrink-0 flex-col gap-6 lg:mb-8 lg:flex-row lg:items-end lg:justify-between lg:gap-0">
         <div className="min-w-0">
            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted">
-              <Activity size={10} className="text-black" />
+              <Activity size={10} className="text-foreground" />
               Trip Intelligence Hub
            </div>
-           <h1 className="mt-2 text-3xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase leading-tight sm:leading-none truncate">{trip.destination ?? trip.name}</h1>
+           <h1 className="mt-2 text-3xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase leading-tight sm:leading-none truncate text-foreground">{trip.destination ?? trip.name}</h1>
            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-muted">
-              <span className="flex items-center gap-2 whitespace-nowrap"><Calendar size={14} className="text-black" /> {trip.startDate} — {trip.endDate}</span>
+              <span className="flex items-center gap-2 whitespace-nowrap"><Calendar size={14} className="text-foreground" /> {trip.startDate} — {trip.endDate}</span>
               <div className="hidden h-4 w-px bg-border lg:block" />
-              <span className="flex items-center gap-2 whitespace-nowrap"><MapPin size={14} className="text-black" /> {trip.destinationCountry}</span>
+              <span className="flex items-center gap-2 whitespace-nowrap"><MapPin size={14} className="text-foreground" /> {trip.destinationCountry}</span>
               <div className="hidden h-4 w-px bg-border lg:block" />
-              <span className="flex items-center gap-2 whitespace-nowrap"><Sparkles size={14} className="text-black" /> {selectedPlaces.length} Saved</span>
+              <span className="flex items-center gap-2 whitespace-nowrap"><Sparkles size={14} className="text-foreground" /> {selectedPlaces.length} Saved</span>
               <div className="hidden h-4 w-px bg-border lg:block" />
-              <span className="flex items-center gap-2 whitespace-nowrap"><Plane size={14} className="text-black" /> {dbTrip?.bookings.length ?? 0} Logistics</span>
+              <span className="flex items-center gap-2 whitespace-nowrap"><Plane size={14} className="text-foreground" /> {dbTrip?.bookings.length ?? 0} Logistics</span>
               <div className="hidden h-4 w-px bg-border lg:block" />
-              <span className="text-foreground flex items-center gap-2 whitespace-nowrap"><CreditCard size={14} className="text-black" /> {formatCurrency(trip.budget)} Pool</span>
+              <span className="text-foreground flex items-center gap-2 whitespace-nowrap"><CreditCard size={14} className="text-foreground" /> {formatCurrency(trip.budget)} Pool</span>
            </div>
         </div>
         
         <Link href={nextStep.href} className="w-full lg:w-auto">
-          <button className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-black px-8 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-2xl hover:translate-y-[-2px] transition-all lg:w-auto lg:h-14">
+          <button className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-foreground px-8 text-xs font-bold uppercase tracking-[0.2em] text-background shadow-2xl hover:translate-y-[-2px] transition-all lg:w-auto lg:h-14">
             Continue Planning <ArrowRight size={14} />
           </button>
         </Link>
@@ -125,8 +125,8 @@ export default async function Home() {
           <div key={step.label} className="flex shrink-0 items-center last:flex-none">
             <Link href={step.href} className="group flex flex-col items-center gap-2 min-w-[70px]">
               <div className={`flex size-8 items-center justify-center rounded-full border-2 transition-all ${
-                step.status === "done" ? "bg-black border-black text-white" :
-                step.status === "current" ? "border-black bg-white text-black animate-pulse shadow-[0_0_12px_rgba(0,0,0,0.1)]" :
+                step.status === "done" ? "bg-foreground border-foreground text-background" :
+                step.status === "current" ? "border-foreground bg-background text-foreground animate-pulse shadow-[0_0_12px_rgba(0,0,0,0.1)]" :
                 "border-border bg-background text-muted"
               }`}>
                 {step.status === "done" ? <CheckCircle2 size={16} /> : 
@@ -134,13 +134,13 @@ export default async function Home() {
                  <span className="text-[10px] font-black">{i + 1}</span>}
               </div>
               <span className={`text-[9px] font-black uppercase tracking-widest ${
-                step.status === "done" ? "text-black" :
-                step.status === "current" ? "text-black" :
+                step.status === "done" ? "text-foreground" :
+                step.status === "current" ? "text-foreground" :
                 "text-muted"
               }`}>{step.label}</span>
             </Link>
             {i < steps.length - 1 && (
-              <div className={`mx-4 h-px w-8 sm:w-12 lg:w-16 xl:w-24 ${step.status === "done" ? "bg-black" : "bg-border"}`} />
+              <div className={`mx-4 h-px w-8 sm:w-12 lg:w-16 xl:w-24 ${step.status === "done" ? "bg-foreground" : "bg-border"}`} />
             )}
           </div>
         ))}
@@ -169,20 +169,20 @@ export default async function Home() {
           {/* Daily Digest - High Density List */}
           <section className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface lg:col-span-5 lg:row-span-3">
              <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-5">
-                <span className="text-[10px] font-black uppercase tracking-widest">Planned Timeline</span>
-                <Link href="/itinerary" className="text-[10px] font-bold text-muted hover:text-black uppercase">Inspect All</Link>
+                <span className="text-[10px] font-black uppercase tracking-widest text-foreground">Planned Timeline</span>
+                <Link href="/itinerary" className="text-[10px] font-bold text-muted hover:text-foreground uppercase">Inspect All</Link>
              </div>
              <div className="max-h-[300px] flex-1 overflow-y-auto divide-y divide-border/40 lg:max-h-none scrollbar-hide">
                 {days.slice(0, 8).map((day, i) => (
                   <div key={day.id} className="group flex items-center gap-4 p-4 hover:bg-background transition-colors cursor-default">
-                     <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background border border-border text-[10px] font-black">
+                     <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background border border-border text-[10px] font-black text-foreground">
                         {i < 9 ? `0${i + 1}` : i + 1}
                      </span>
                      <div className="min-w-0 flex-1">
-                        <h4 className="truncate text-xs font-bold uppercase tracking-tight">{day.theme}</h4>
+                        <h4 className="truncate text-xs font-bold uppercase tracking-tight text-foreground">{day.theme}</h4>
                         <p className="mt-1 truncate text-[10px] text-muted leading-relaxed font-medium uppercase">{day.morningPlan}</p>
                      </div>
-                     <ChevronRight size={12} className="text-border group-hover:text-black transition-colors" />
+                     <ChevronRight size={12} className="text-muted group-hover:text-foreground transition-colors" />
                   </div>
                 ))}
                 {days.length === 0 && (
@@ -197,7 +197,7 @@ export default async function Home() {
           <section className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface-2 lg:col-span-5 lg:row-span-1">
              <div className="flex h-8 shrink-0 items-center border-b border-border bg-background/50 px-4">
                 <span className="text-[8px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
-                   <AlertCircle size={10} className="text-black" />
+                   <AlertCircle size={10} className="text-foreground" />
                    Health Check / Attention Required
                 </span>
              </div>
@@ -206,9 +206,9 @@ export default async function Home() {
                   <div key={warning.id} className="flex h-full min-w-[140px] items-center gap-2 rounded-lg border border-border bg-background p-2 shadow-sm lg:min-w-0">
                      <AlertCircle size={12} className="text-rose-600 shrink-0" />
                      <div className="min-w-0">
-                        <p className="truncate text-[9px] font-bold uppercase tracking-tight">{warning.label}</p>
+                        <p className="truncate text-[9px] font-bold uppercase tracking-tight text-foreground">{warning.label}</p>
                         {warning.href && (
-                          <Link href={warning.href} className="text-[8px] font-black text-muted hover:text-black uppercase underline underline-offset-2">Action</Link>
+                          <Link href={warning.href} className="text-[8px] font-black text-muted hover:text-foreground uppercase underline underline-offset-2">Action</Link>
                         )}
                      </div>
                   </div>
@@ -226,13 +226,13 @@ export default async function Home() {
              <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted">Capital Utilization</span>
                 <div className="mt-4 flex items-baseline gap-2">
-                   <span className="text-3xl font-black tracking-tight">{formatCurrency(actual)}</span>
+                   <span className="text-3xl font-black tracking-tight text-foreground">{formatCurrency(actual)}</span>
                    <span className="text-[10px] font-bold text-muted uppercase">Actual</span>
                 </div>
              </div>
              <div className="mt-6 space-y-4">
                 <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2 border border-border">
-                   <div className="h-full bg-black transition-all duration-1000" style={{ width: `${Math.min(100, (actual / (trip.budget || 1)) * 100)}%` }} />
+                   <div className="h-full bg-foreground transition-all duration-1000" style={{ width: `${Math.min(100, (actual / (trip.budget || 1)) * 100)}%` }} />
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted">
                    <span>Remaining</span>
@@ -245,7 +245,8 @@ export default async function Home() {
           <section className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface lg:col-span-9 lg:row-span-2">
              <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-5">
                 <span className="text-[10px] font-black uppercase tracking-widest">Discovery Selection</span>
-                <Link href="/discover" className="text-[10px] font-bold text-muted hover:text-black uppercase">Manage Stack</Link>
+                <Link href="/discover" className="text-[10px] font-bold text-muted hover:text-foreground uppercase">Manage Stack</Link>
+
              </div>
              <div className="flex min-h-[120px] flex-1 gap-px bg-border/40 lg:min-h-0">
                 {selectedPlaces.slice(0, 6).map((place) => (
@@ -282,7 +283,7 @@ export default async function Home() {
 function Shortcut({ label, keybind, href }: { label: string; keybind: string; href: string }) {
   return (
     <Link href={href} className="flex items-center gap-3 group">
-       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted group-hover:text-black transition-colors">{label}</span>
+       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted group-hover:text-foreground transition-colors">{label}</span>
        <span className="rounded border border-border-strong bg-surface px-1.5 py-0.5 text-[8px] font-black text-muted-2">{keybind}</span>
     </Link>
   );

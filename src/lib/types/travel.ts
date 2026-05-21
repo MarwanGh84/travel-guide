@@ -60,6 +60,7 @@ export type PlaceRecommendation = {
   costLevel: "$" | "$$" | "$$$" | "$$$$";
   location: string;
   coordinates?: { lat: number; lng: number };
+  photoUrl?: string;
   openingStatus?: string;
   whyRecommended: string;
   isHiddenGem: boolean;

@@ -1,31 +1,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f1ea;
+  --background: #f5f0e6;
   --foreground: #111111;
   --surface: rgba(255, 255, 255, 0.4);
   --surface-2: rgba(0, 0, 0, 0.04);
+  --surface-3: rgba(0, 0, 0, 0.02);
   --border: rgba(0, 0, 0, 0.1);
   --border-strong: rgba(0, 0, 0, 0.18);
   --muted: #666666;
+  --muted-foreground: #888888;
   --accent: #000000;
   --accent-foreground: #ffffff;
   --radius: 6px;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  --mesh-1: hsla(45, 30%, 95%, 1);
+  --mesh-2: hsla(38, 25%, 92%, 1);
+  --mesh-3: hsla(42, 28%, 94%, 1);
+  --mesh-4: hsla(48, 20%, 96%, 1);
+  --mesh-5: hsla(35, 22%, 91%, 1);
+  --mesh-6: hsla(40, 24%, 93%, 1);
+  --mesh-7: hsla(44, 26%, 95%, 1);
+}
+
+.dark {
+  --background: #18181b;
+  --foreground: #f5f0e6;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-3: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --muted: #a0a0a0;
+  --muted-foreground: #707070;
+  --accent: #ffffff;
+  --accent-foreground: #000000;
+
+  --mesh-1: hsla(240, 5%, 12%, 1);
+  --mesh-2: hsla(240, 5%, 9%, 1);
+  --mesh-3: hsla(240, 5%, 11%, 1);
+  --mesh-4: hsla(240, 5%, 8%, 1);
+  --mesh-5: hsla(240, 5%, 10%, 1);
+  --mesh-6: hsla(240, 5%, 13%, 1);
+  --mesh-7: hsla(240, 5%, 7%, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --font-sans: var(--font-sans);
-}
-
-html,
-body,
-body::before,
-body::after {
-  background-image: none !important;
-  background-image: none;
 }
 
 html,
@@ -35,15 +68,19 @@ body {
   font-size: 13px;
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
-  background-color: #f4f1ea !important;
+  background-color: var(--background);
 }
 
-.mesh-gradient {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-color: #f4f1ea !important;
+.mesh-gradient-bg {
+  background-image: 
+    radial-gradient(at 27% 37%, var(--mesh-1) 0px, transparent 50%),
+    radial-gradient(at 97% 21%, var(--mesh-2) 0px, transparent 50%),
+    radial-gradient(at 52% 99%, var(--mesh-3) 0px, transparent 50%),
+    radial-gradient(at 10% 29%, var(--mesh-4) 0px, transparent 50%),
+    radial-gradient(at 97% 96%, var(--mesh-5) 0px, transparent 50%),
+    radial-gradient(at 33% 50%, var(--mesh-6) 0px, transparent 50%),
+    radial-gradient(at 79% 53%, var(--mesh-7) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
 * {
@@ -60,52 +97,10 @@ body {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  transition: background 150ms ease;
 }
 
-.high-density-list-item:hover {
-  background: var(--surface);
-}
-
-.split-pane-container {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
-.pane-sidebar {
-  width: 320px;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-  overflow-y: auto;
-}
-
-.pane-main {
-  flex: 1;
-  overflow-y: auto;
-  background: var(--background);
-}
-
-.nav-rail-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
+.secondary-header {
   height: 48px;
-  border-radius: var(--radius);
-  color: var(--muted);
-  transition: all 150ms ease;
-}
-
-.nav-rail-item:hover, .nav-rail-item.active {
-  background: var(--surface-2);
-  color: var(--foreground);
-}
-
-.command-bar {
-  height: 48px;
-  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   padding: 0 16px;

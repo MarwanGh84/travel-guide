@@ -2,12 +2,15 @@ import { BudgetWorkspace } from "@/components/travel/budget-workspace";
 import { getExchangeRate } from "@/lib/api/currencyService";
 import { getPrimaryTrip, toTripDraft } from "@/lib/db/travel";
 import { getCurrencyForCountry } from "@/lib/travel/currencies";
+import { computeBudgetIntelligence } from "@/lib/travel/budget-intelligence";
 
 export const dynamic = "force-dynamic";
 
 export default async function BudgetPage() {
   const dbTrip = await getPrimaryTrip();
   const trip = dbTrip ? toTripDraft(dbTrip) : null;
+  const budgetIntelligence = computeBudgetIntelligence(dbTrip);
+
   const categories = dbTrip ? dbTrip.budgetCategories.map((item) => ({ name: item.name, estimated: item.estimatedAmount, actual: item.actualAmount })) : [];
   const expenses = dbTrip
     ? dbTrip.expenses.map((expense) => ({
@@ -33,6 +36,7 @@ export default async function BudgetPage() {
       baseCurrency={dbTrip?.currency ?? "USD"}
       destinationCurrency={destinationCurrency}
       exchangeRate={exchangeRate}
+      intelligence={budgetIntelligence}
     />
   );
 }

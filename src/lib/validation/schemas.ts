@@ -150,7 +150,7 @@ export const RapidHotelItemSchema = z.object({
   hotel_name: z.string().optional(),
   city: z.string().optional(),
   district: z.string().optional(),
-  review_score: z.number().optional(),
+  review_score: z.number().nullable().optional(),
   review_score_word: z.string().optional(),
   composite_price_breakdown: z.object({
     gross_amount_per_night: z.object({
@@ -197,6 +197,7 @@ export const ForecastResponseSchema = z.object({
     temperature_2m_min: z.array(z.number()).optional(),
     precipitation_probability_max: z.array(z.number()).optional(),
     weather_code: z.array(z.number()).optional(),
+    wind_speed_10m_max: z.array(z.number()).optional(),
   }).optional(),
 });
 

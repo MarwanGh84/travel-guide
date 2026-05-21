@@ -7,6 +7,7 @@ import {
   toSelectedPlaceRecommendations,
   toTripDraft,
 } from "@/lib/db/travel";
+import { getWeatherSummary } from "@/lib/api/weatherService";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,22 @@ export default async function DiscoverPage() {
   const intelligence = dbTrip ? toDestinationIntel(dbTrip) : null;
   const places = mergePlaces(livePlaces, selectedPlaces);
   const selectedIds = new Set(selectedPlaces.map((place) => place.id));
+  
+  const itineraryDays = dbTrip ? dbTrip.itineraryDays.map(day => ({
+    id: day.id,
+    date: day.date.toISOString().slice(0, 10),
+    theme: day.theme,
+  })) : [];
+
+  const usedPlaceRecommendationIds = new Set<string>();
+  dbTrip?.itineraryDays.forEach(day => {
+    day.items.forEach(item => {
+      if (item.placeRecommendationId) usedPlaceRecommendationIds.add(item.placeRecommendationId);
+    });
+  });
+
+  const destination = trip?.destination || trip?.destinationCountry || "";
+  const weather = destination ? await getWeatherSummary(destination) : null;
 
   return (
     <DiscoverWorkspace 
@@ -27,6 +44,9 @@ export default async function DiscoverPage() {
       destinations={destinations} 
       selectedIds={selectedIds} 
       intelligence={intelligence} 
+      itineraryDays={itineraryDays}
+      usedPlaceRecommendationIds={usedPlaceRecommendationIds}
+      weather={weather}
     />
   );
 }

@@ -10,6 +10,7 @@ export type MapPin = {
   isSaved?: boolean;
   lat: number;
   lng: number;
+  photoUrl?: string;
   coordinateSource: "place-record" | "google-places-geocoding";
   matchMethod: RoutePlaceRecommendation["routeMatch"];
 };
@@ -52,7 +53,7 @@ export async function getMapRoute(places: RoutePlaceRecommendation[]): Promise<M
   const center = centerFromPins(pins);
   const zoom = zoomFromPins(pins);
   const routePins = selectRoutePins(pins);
-  const segments = buildRouteSegments(routePins);
+  const segments = buildRouteSegments(pins);
   const route = await computeGoogleRoute(routePins);
 
   if (route) {
@@ -63,7 +64,9 @@ export async function getMapRoute(places: RoutePlaceRecommendation[]): Promise<M
       missingPlaces,
       routePins,
       segments,
-      routeNote: `Google Routes total across ${routePins.length} mapped stops.`,
+      routeNote: routePins.length < pins.length 
+        ? `Google Routes calculated for first ${routePins.length} stops. Full itinerary shown in segments.`
+        : `Google Routes total across ${routePins.length} mapped stops.`,
       distanceMeters: route.distanceMeters,
       duration: route.duration,
       encodedPolyline: route.encodedPolyline,
@@ -73,18 +76,18 @@ export async function getMapRoute(places: RoutePlaceRecommendation[]): Promise<M
     };
   }
 
-  const fallback = estimateRoute(routePins);
-  const hasRouteablePins = routePins.length > 1;
+  const fallback = estimateRoute(pins);
+  const hasRouteablePins = pins.length > 1;
   return {
     center,
     zoom,
     pins,
     missingPlaces,
-    routePins,
+    routePins: pins,
     segments,
     routeNote: process.env.GOOGLE_MAPS_API_KEY
       ? hasRouteablePins
-        ? "Mapped pins are real. Total route distance is a computed estimate because Google Routes is unavailable."
+        ? "Mapped pins are real. Total route distance is a computed estimate because Google Routes is unavailable or too long."
         : "Mapped pins are real. Route unavailable until at least two places have coordinates."
       : hasRouteablePins
         ? "Mapped pins are real provider coordinates. Google Routes is not connected, so route totals are computed estimates."
@@ -179,6 +182,7 @@ async function resolvePin(place: RoutePlaceRecommendation): Promise<MapPin | Mis
       isHiddenGem: place.isHiddenGem,
       lat: place.coordinates!.lat,
       lng: place.coordinates!.lng,
+      photoUrl: place.photoUrl,
       coordinateSource: "place-record",
       matchMethod: place.routeMatch,
     };
@@ -194,6 +198,7 @@ async function resolvePin(place: RoutePlaceRecommendation): Promise<MapPin | Mis
       isHiddenGem: place.isHiddenGem,
       lat: geocoded.lat,
       lng: geocoded.lng,
+      photoUrl: place.photoUrl,
       coordinateSource: "google-places-geocoding",
       matchMethod: place.routeMatch,
     };
@@ -306,7 +311,7 @@ function estimateRoute(pins: MapPin[]) {
 }
 
 function selectRoutePins(pins: MapPin[]) {
-  return pins.slice(0, 6);
+  return pins.slice(0, 10);
 }
 
 function buildRouteSegments(pins: MapPin[]): MapSegment[] {

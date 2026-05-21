@@ -50,7 +50,7 @@ export function ProfileWorkspace({ profile }: { profile: ProfileShape }) {
                 className={cn(
                   "flex items-center gap-3 shrink-0 rounded-md px-4 py-2 text-xs font-bold transition-all lg:w-full border-l-2 lg:py-2.5",
                   activeTab === tab.id 
-                    ? "bg-background text-foreground shadow-sm border-black lg:ring-1 lg:ring-border" 
+                    ? "bg-background text-foreground shadow-sm border-foreground lg:ring-1 lg:ring-border" 
                     : "text-muted-foreground border-transparent hover:bg-surface-2/50"
                 )}
              >
@@ -145,7 +145,7 @@ export function ProfileWorkspace({ profile }: { profile: ProfileShape }) {
                              <Input name="passportNationality" defaultValue={profile?.passportNationality ?? ""} className="h-11 bg-surface font-bold uppercase border-border text-xs" placeholder="OPTIONAL" />
                           </ConfigField>
                        </div>
-                       <label className="flex min-h-14 cursor-pointer items-center gap-4 rounded-xl border border-border bg-surface px-6 py-4 transition-all hover:bg-background has-[:checked]:border-black has-[:checked]:bg-black has-[:checked]:text-white shadow-inner">
+                       <label className="flex min-h-14 cursor-pointer items-center gap-4 rounded-xl border border-border bg-surface px-6 py-4 transition-all hover:bg-background has-[:checked]:border-foreground has-[:checked]:bg-foreground has-[:checked]:text-background shadow-inner">
                           <input name="hiddenGemInterest" type="checkbox" defaultChecked={profile?.hiddenGemInterest ?? true} className="hidden" />
                           <span className="text-[10px] font-black uppercase tracking-[0.1em]">Prioritize Hidden Gems</span>
                        </label>
@@ -164,7 +164,7 @@ export function ProfileWorkspace({ profile }: { profile: ProfileShape }) {
            </div>
 
            <footer className="mt-12 shrink-0 border-t border-border pt-8 sm:mt-20 sm:pt-10 pb-10 sm:pb-0">
-              <button type="submit" className="h-12 sm:h-14 w-full bg-black text-white shadow-2xl hover:bg-zinc-800 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-3">
+              <button type="submit" className="h-12 sm:h-14 w-full bg-foreground text-background shadow-2xl hover:bg-zinc-800 dark:hover:bg-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-3">
                  <Save size={16} /> <span className="hidden xs:inline">Sync Profile Data</span><span className="xs:hidden">Sync Profile</span>
               </button>
            </footer>

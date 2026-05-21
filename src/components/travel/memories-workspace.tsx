@@ -154,7 +154,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                    <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", resolvedSelectedId === m.id ? "text-foreground" : "text-muted-2")}>
                       {m.title}
                    </h4>
-                   <span className="text-[10px] font-bold text-black">{m.rating}/5</span>
+                   <span className="text-[10px] font-bold text-foreground">{m.rating}/5</span>
                 </div>
                 <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted">{tripName}</p>
              </button>
@@ -172,7 +172,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
              onClick={() => {
                setShowFolderForm(true);
              }}
-             className="flex h-9 w-full items-center justify-center gap-2 rounded-md bg-black text-[10px] font-black uppercase tracking-widest text-white hover:bg-zinc-800 transition-all"
+             className="flex h-9 w-full items-center justify-center gap-2 rounded-md bg-foreground text-[10px] font-black uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
            >
               <PlusCircle size={14} /> Add Drive
            </button>
@@ -220,7 +220,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
               <span>Reconnect Google to enable Drive previews.</span>
               <a
                 href="/api/gmail/connect"
-                className="inline-flex h-9 items-center rounded-md bg-black px-3 text-[10px] font-black uppercase tracking-widest text-white"
+                className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-[10px] font-black uppercase tracking-widest text-background"
               >
                 Reconnect Google
               </a>
@@ -235,7 +235,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                 placeholder="Paste Google Drive folder URL or folder ID"
                 className="h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm"
               />
-              <button className="h-10 rounded-md bg-black px-4 text-[10px] font-black uppercase tracking-widest text-white">
+              <button className="h-10 rounded-md bg-foreground px-4 text-[10px] font-black uppercase tracking-widest text-background">
                 Link Folder
               </button>
             </form>
@@ -245,7 +245,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <form action={syncMemoryFolder}>
                 <input type="hidden" name="sourceId" value={memorySource.id} />
-                <button className="inline-flex h-9 items-center gap-2 rounded-md bg-black px-3 text-[10px] font-black uppercase tracking-widest text-white">
+                <button className="inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-3 text-[10px] font-black uppercase tracking-widest text-background">
                   <RefreshCw size={13} /> Refresh folder
                 </button>
               </form>
@@ -278,12 +278,12 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                         className={cn(
                           "inline-flex h-8 items-center gap-2 rounded-full border px-3 text-[10px] font-black uppercase tracking-widest transition-colors",
                           assetFilter === filter.id
-                            ? "border-black bg-black text-white"
+                            ? "border-foreground bg-foreground text-background"
                             : "border-border bg-background text-muted hover:text-foreground",
                         )}
                       >
                         {filter.label}
-                        <span className={cn("rounded-full px-1.5 py-0.5", assetFilter === filter.id ? "bg-white/15" : "bg-surface-2")}>
+                        <span className={cn("rounded-full px-1.5 py-0.5", assetFilter === filter.id ? "bg-background/15" : "bg-surface-2")}>
                           {assetCounts[filter.id]}
                         </span>
                       </button>
@@ -367,7 +367,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
             >
                <header className="mb-8 sm:mb-12 border-b border-border pb-8 sm:pb-12">
                   <div className="flex items-center gap-4 mb-4 sm:mb-6">
-                     <div className="flex gap-0.5 text-black">
+                     <div className="flex gap-0.5 text-foreground">
                         {[...Array(5)].map((_, i) => (
                           <Heart key={i} size={10} fill={(active.rating ?? 0) > i ? "currentColor" : "none"} className={(active.rating ?? 0) > i ? "" : "text-muted"} />
                         ))}
@@ -390,7 +390,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                   {/* Highlights */}
                   <section className="space-y-6">
                      <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted">
-                        <MessageSquare size={12} className="text-black" />
+                        <MessageSquare size={12} className="text-foreground" />
                         <span>Core Reflections</span>
                      </div>
                      <div className="space-y-8">

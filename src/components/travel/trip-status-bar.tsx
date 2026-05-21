@@ -103,7 +103,7 @@ export function TripStatusBar() {
   );
 
   return (
-    <div className="group relative flex h-10 w-full items-center overflow-hidden border-b border-border bg-surface select-none z-20">
+    <div className="trip-status-bar group relative flex h-10 w-full items-center overflow-hidden border-b border-border bg-surface select-none z-20">
        {/* Gradient Masks - strictly decorative and non-blocking */}
        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-surface via-surface/80 to-transparent" />
        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-surface via-surface/80 to-transparent" />

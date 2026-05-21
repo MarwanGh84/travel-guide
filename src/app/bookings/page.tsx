@@ -1,10 +1,17 @@
 import { BookingsWorkspace } from "@/components/travel/bookings-workspace";
-import { getPrimaryTrip } from "@/lib/db/travel";
+import { getPrimaryTrip, ensureBookingChecklist } from "@/lib/db/travel";
 
 export const dynamic = "force-dynamic";
 
 export default async function BookingsPage() {
   const trip = await getPrimaryTrip();
+  if (trip && trip.bookingChecklist.length === 0) {
+    const freshChecklist = await ensureBookingChecklist(trip.id);
+    if (freshChecklist) {
+      trip.bookingChecklist = freshChecklist;
+    }
+  }
+
   const bookings = trip
     ? trip.bookings.map((booking) => ({
         id: booking.id,
@@ -20,5 +27,15 @@ export default async function BookingsPage() {
       }))
     : [];
 
-  return <BookingsWorkspace bookings={bookings} tripName={trip?.destination || "Global"} />;
+  const checklist = trip?.bookingChecklist ?? [];
+  const itineraryApproved = trip?.status === "itinerary_approved";
+
+  return (
+    <BookingsWorkspace 
+      bookings={bookings} 
+      tripName={trip?.destination || "Global"} 
+      checklist={checklist}
+      itineraryApproved={itineraryApproved}
+    />
+  );
 }

@@ -5,7 +5,7 @@ import {
   Bed, 
   Search, 
   ChevronRight, 
-  ExternalLink,
+  ArrowUpRight,
   ShieldCheck,
   Zap,
   Star,
@@ -56,15 +56,15 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                     className={cn(
                       "min-w-[240px] shrink-0 rounded-xl border p-4 text-left transition-all group lg:min-w-0 lg:shrink",
                       selectedZoneId === zone.id 
-                        ? "bg-background border-black shadow-md ring-1 ring-black/5" 
-                        : "bg-background/50 border-border/60 hover:border-black"
+                        ? "bg-background border-foreground shadow-md ring-1 ring-foreground/5" 
+                        : "bg-background/50 border-border/60 hover:border-foreground"
                     )}
                   >
                      <div className="flex items-center justify-between gap-4">
                         <h4 className={cn("truncate text-sm font-black uppercase tracking-tight", selectedZoneId === zone.id ? "text-foreground" : "text-muted-foreground")}>
                            {zone.areaName}
                         </h4>
-                        <ChevronRight size={14} className={cn("shrink-0 transition-transform", selectedZoneId === zone.id ? "text-black translate-x-1" : "text-muted-foreground/40")} />
+                        <ChevronRight size={14} className={cn("shrink-0 transition-transform", selectedZoneId === zone.id ? "text-foreground translate-x-1" : "text-muted-foreground/40")} />
                      </div>
                      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">{zone.confidenceScore * 100}% Itinerary Match</p>
                   </button>
@@ -72,8 +72,8 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
              </div>
           </section>
 
-          <section className="mt-auto hidden lg:block rounded-xl bg-black p-5 text-white shadow-2xl">
-             <ShieldCheck size={20} className="text-emerald-400 opacity-80 mb-4" />
+          <section className="mt-auto hidden lg:block rounded-xl bg-foreground p-5 text-background shadow-2xl">
+             <ShieldCheck size={20} className="text-emerald-500 dark:text-emerald-400 opacity-80 mb-4" />
              <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed opacity-80">
                 These zones were calculated by clustering your approved itinerary POIs to reduce travel overhead.
              </p>
@@ -102,11 +102,11 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                        {activeZone.destination} Sector
                      </span>
                   </div>
-                  <h2 className="text-3xl sm:text-5xl lg:text-7xl font-black uppercase tracking-tighter text-foreground leading-none">{activeZone.areaName}</h2>
+                  <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tighter text-foreground leading-[0.95]">{activeZone.areaName}</h2>
                   <p className="mt-6 sm:mt-8 text-lg sm:text-xl font-medium leading-relaxed text-muted-foreground italic tracking-tight">&quot;{activeZone.reason}&quot;</p>
                   
                   <div className="mt-8 sm:mt-10 flex flex-wrap gap-4 sm:gap-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                     <span className="flex items-center gap-2 whitespace-nowrap"><MapPin size={14} className="text-black" /> {typeof activeZone.averageDistanceKm === "number" ? `${activeZone.averageDistanceKm}km Avg` : "N/A"}</span>
+                     <span className="flex items-center gap-2 whitespace-nowrap"><MapPin size={14} className="text-foreground" /> {typeof activeZone.averageDistanceKm === "number" ? `${activeZone.averageDistanceKm}km Avg` : "N/A"}</span>
                      <div className="hidden sm:block h-3 w-px bg-border" />
                      <span className="flex items-center gap-2 whitespace-nowrap">
                        <Star size={14} className={cn(activeZone.hotelInventoryStatus === "live" ? "text-amber-500" : "text-muted-foreground/20")} fill={activeZone.hotelInventoryStatus === "live" ? "currentColor" : "none"} />
@@ -126,7 +126,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                   </div>
 
                   {activeZone.hotelInventoryStatus !== "live" && (
-                    <div className="mb-12 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+                    <div className="mb-12 rounded-2xl border-2 border-border bg-surface p-8 shadow-sm">
                       <div className="flex items-center gap-3 mb-4 text-muted-foreground">
                         <Info size={18} />
                         <span className="text-[11px] font-black uppercase tracking-widest">Inventory Protocol Note</span>
@@ -137,9 +137,9 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                     </div>
                   )}
 
-                  <div className="grid gap-8 sm:grid-cols-2">
+                  <div className="grid gap-6 sm:grid-cols-2">
                      {activeZone.hotels.map((hotel, i) => (
-                       <article key={i} className="group rounded-2xl border border-border bg-surface overflow-hidden hover:border-black transition-all shadow-sm hover:shadow-2xl">
+                       <article key={i} className="group rounded-2xl border-2 border-border bg-background overflow-hidden hover:border-foreground transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]">
                           <div className="aspect-[16/10] w-full overflow-hidden bg-muted relative">
                              {hotel.photoUrl ? (
                                // eslint-disable-next-line @next/next/no-img-element -- Intentional use of external provider photo URL
@@ -149,9 +149,9 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                                   <Bed size={48} strokeWidth={1} />
                                </div>
                              )}
-                             <div className="absolute top-4 right-4 rounded-full bg-black/80 backdrop-blur-md px-2 py-1 flex items-center gap-1 text-[10px] font-black text-white">
+                             <div className="absolute top-4 right-4 rounded-full bg-black/80 backdrop-blur-md px-2 py-1 flex items-center gap-1 text-[10px] font-black text-white shadow-lg">
                                 <Star size={10} fill="currentColor" className="text-amber-400" />
-                                {hotel.rating}
+                                {hotel.rating ? hotel.rating.toFixed(1) : "N/A"}
                              </div>
                           </div>
                           <div className="p-6">
@@ -162,7 +162,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                              
                              {typeof hotel.estimatedPricePerNight === "number" && (
                                <div className="mt-6 flex items-baseline gap-2">
-                                  <span className="text-3xl font-black tracking-tighter text-foreground">
+                                  <span className="text-2xl font-black tracking-tighter text-foreground">
                                     {hotel.currency ? `${hotel.currency} ` : ""}
                                     {formatCurrency(hotel.estimatedPricePerNight)}
                                   </span>
@@ -172,8 +172,8 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
 
                              {typeof hotel.averageItineraryDistanceKm === "number" ? (
                                <p className="mt-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
-                                 {hotel.averageItineraryDistanceKm} km average from this zone&apos;s itinerary places
-                                 {hotel.nearestItineraryPlace ? ` · nearest to ${hotel.nearestItineraryPlace}` : ""}
+                                 {hotel.averageItineraryDistanceKm} km average from itinerary
+                                 {hotel.nearestItineraryPlace ? ` · near ${hotel.nearestItineraryPlace}` : ""}
                                </p>
                              ) : typeof hotel.distanceKm === "number" ? (
                                <p className="mt-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
@@ -181,32 +181,18 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                                </p>
                              ) : null}
 
-                             <div className="mt-4 flex flex-wrap gap-1.5">
-                                {hotel.amenities.map((amenity, idx) => (
-                                  <span key={idx} className="rounded border border-border bg-background px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted-foreground">
-                                     {amenity}
-                                  </span>
-                                ))}
-                             </div>
-
-                             <div className="mt-8">
-                                {hotel.bookingLink ? (
-                                  <button
-                                     onClick={() => window.open(hotel.bookingLink, "_blank")}
-                                     className="w-full h-11 bg-black text-white text-[10px] font-black uppercase tracking-[0.15em] rounded-lg shadow-xl hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
+                             <div className="mt-6 pt-6 border-t border-border/50">
+                                {hotel.bookingLink && (
+                                  <a 
+                                    href={hotel.bookingLink} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="h-10 w-full rounded-lg bg-foreground px-5 text-[10px] font-black uppercase tracking-widest text-background shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 active:scale-95"
                                   >
-                                     View Provider Details <ExternalLink size={12} />
-                                  </button>
-                                ) : (
-                                  <button
-                                     onClick={() => window.open(`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(hotel.name + " " + hotel.area)}`, "_blank")}
-                                     className="w-full h-11 bg-surface-2 text-foreground border border-border text-[10px] font-black uppercase tracking-[0.15em] rounded-lg shadow-sm hover:bg-background transition-all flex items-center justify-center gap-2"
-                                  >
-                                     Search on Booking.com <ExternalLink size={12} />
-                                  </button>
+                                     Review <ArrowUpRight size={14} />
+                                  </a>
                                 )}
                              </div>
-
                           </div>
                        </article>
                      ))}
@@ -220,7 +206,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                         <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Sector Advantages</h3>
                         <div className="space-y-4">
                            {activeZone.pros.map((pro, i) => (
-                             <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-surface border border-border shadow-sm">
+                             <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-surface border-2 border-border shadow-sm transition-all hover:border-foreground duration-300">
                                 <Zap size={16} className="text-emerald-500 shrink-0 mt-0.5" />
                                 <span className="text-xs font-bold uppercase tracking-tight text-foreground leading-relaxed">{pro}</span>
                              </div>
@@ -234,7 +220,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                         </p>
                         <div className="flex flex-wrap gap-2">
                            {activeZone.nearbyPlaces.map((place, i) => (
-                             <span key={i} className="rounded-lg border border-border bg-surface px-4 py-2 text-[11px] font-bold uppercase tracking-tight shadow-sm">{place}</span>
+                             <span key={i} className="rounded-lg border-2 border-border bg-surface px-4 py-2 text-[11px] font-bold uppercase tracking-tight shadow-sm">{place}</span>
                            ))}
                         </div>
                      </section>
@@ -242,15 +228,15 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
 
                   <section className="pb-20">
                      <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Search Intelligence</h3>
-                     <div className="grid gap-4 sm:grid-cols-2">
+                     <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
                         {searchSuggestions.filter(s => s.area === activeZone.areaName || s.area === destination).map((suggestion, i) => (
                           <button 
                             key={i}
                             onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(suggestion.query)}`, "_blank")}
-                            className="flex items-center justify-between rounded-2xl border border-border bg-surface p-6 text-left hover:border-black transition-all group shadow-sm hover:shadow-xl"
+                            className="flex items-center justify-between rounded-2xl border-2 border-border bg-surface p-6 text-left hover:border-foreground transition-all duration-300 group shadow-sm hover:shadow-xl active:scale-[0.98]"
                           >
                              <div className="flex items-center gap-4">
-                                <div className="size-12 grid place-items-center rounded-xl bg-background border border-border text-muted-foreground group-hover:text-black shadow-inner transition-colors">
+                                <div className="size-12 grid place-items-center rounded-xl bg-background border border-border text-muted-foreground group-hover:text-foreground shadow-inner transition-colors">
                                    <Search size={20} />
                                 </div>
                                 <div>
@@ -258,7 +244,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                                   <span className="mt-1 block text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">External Provider Search</span>
                                 </div>
                              </div>
-                             <ChevronRight size={18} className="text-muted-foreground/30 group-hover:text-black group-hover:translate-x-1 transition-all" />
+                             <ChevronRight size={18} className="text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-1 transition-all" />
                           </button>
                         ))}
                      </div>

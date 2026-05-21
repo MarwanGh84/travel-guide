@@ -26,10 +26,14 @@ import {
   LucideIcon,
   Star,
   ChevronRight,
-  Info
+  Info,
+  AlertTriangle,
+  CheckCircle2,
+  Activity
 } from "lucide-react";
 
 import { buildGoogleMapsDirectionsUrl, formatDistance, formatDuration, type MapPin as RoutePin, type MapRoute } from "@/lib/api/mapsService";
+import { computeRouteRealityCheck } from "@/lib/travel/route-intelligence";
 import { cn } from "@/lib/utils";
 
 type InteractiveMapProps = {
@@ -38,21 +42,81 @@ type InteractiveMapProps = {
   browserMapApiKey: string | null;
 };
 
-type LayerKey = "recommended" | "restaurants" | "hiddenGems" | "route";
+function RouteRealityCheck({ route, googleMapsRouteUrl }: { route: MapRoute, googleMapsRouteUrl: string | null }) {
+  const { warnings, status } = computeRouteRealityCheck(route);
+  
+  // Status mapping
+  const StatusIcon = status === "Incomplete" ? AlertTriangle : status === "Needs review" ? Activity : CheckCircle2;
+  const statusColor = status === "Incomplete" ? "text-rose-600" : status === "Needs review" ? "text-amber-600" : "text-emerald-600";
+
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner">
+      <header className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+           <Info size={14} className="text-foreground" />
+           <h2 className="text-[10px] font-black uppercase tracking-widest text-foreground">Route Reality Check</h2>
+        </div>
+        <div className={cn("flex items-center gap-1 text-[9px] font-black uppercase tracking-widest", statusColor)}>
+           <StatusIcon size={12} />
+           {status}
+        </div>
+      </header>
+
+      {warnings.length > 0 ? (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {warnings.map((w, i) => (
+              <div key={i} className="flex items-start gap-2 text-[10px] font-bold leading-relaxed text-muted-foreground uppercase tracking-tight">
+                <span className={cn("mt-1.5 size-1 shrink-0 rounded-full", w.type === "error" ? "bg-rose-500" : w.type === "warning" ? "bg-amber-500" : "bg-blue-500")} />
+                <span>{w.message}</span>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-border/50">
+             <p className="text-[9px] font-black uppercase tracking-widest text-muted mb-2">Recommended Action</p>
+             <div className="flex flex-wrap gap-2">
+                {Array.from(new Set(warnings.map(w => w.action).filter(Boolean))).map((action, i) => (
+                   <span key={i} className="rounded-md bg-foreground px-2 py-1 text-[8px] font-black uppercase tracking-widest text-background shadow-sm">
+                      {action}
+                   </span>
+                ))}
+                {googleMapsRouteUrl && (
+                  <a 
+                    href={googleMapsRouteUrl} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="rounded-md border border-border bg-background px-2 py-1 text-[8px] font-black uppercase tracking-widest text-muted hover:bg-surface transition-colors"
+                  >
+                    open in Google Maps
+                  </a>
+                )}
+             </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted text-center py-4">
+           Route telemetry is fully verified.
+        </p>
+      )}
+    </section>
+  );
+}
+
+type LayerKey = "recommended" | "restaurants" | "hiddenGems";
 type MapStyleKey = "roadmap" | "editorial" | "night";
 
 const layerLabels: Record<LayerKey, string> = {
   recommended: "Recommended",
   restaurants: "Food",
   hiddenGems: "Hidden Gems",
-  route: "Route Line",
 };
 
 export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: InteractiveMapProps) {
   const [selectedPinId, setSelectedPinId] = useState(route.pins[0]?.id ?? "");
   const [zoom, setZoom] = useState(route.zoom);
   const [center, setCenter] = useState(route.center);
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ recommended: true, restaurants: true, hiddenGems: true, route: true });
+  const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ recommended: true, restaurants: true, hiddenGems: true });
   const [sidebarTab, setSidebarTab] = useState<"detail" | "list" | "segments">("list");
   const dragState = useRef<{ pointerId: number; x: number; y: number; center: { lat: number; lng: number } } | null>(null);
 
@@ -61,7 +125,6 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
   const visibleRoute = useMemo(() => ({ ...route, center, zoom }), [center, route, zoom]);
   const mapImageUrl = mapImageBaseUrl && center ? `${mapImageBaseUrl}&zoom=${zoom}&lat=${center.lat}&lng=${center.lng}` : null;
   const positions = useMemo(() => projectPins(visiblePins, visibleRoute), [visiblePins, visibleRoute]);
-  const routePositions = useMemo(() => projectPins(route.routePins.filter((pin) => visiblePins.some((visible) => visible.id === pin.id)), visibleRoute), [route, visiblePins, visibleRoute]);
   const isEmpty = route.pins.length === 0;
   const googleMapsRouteUrl = buildGoogleMapsDirectionsUrl(route.routePins);
 
@@ -124,10 +187,10 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
                       onClick={() => { setSelectedPinId(pin.id); setSidebarTab("detail"); }}
                       className={cn(
                         "w-full flex items-center gap-4 rounded-xl border p-4 text-left transition-all group",
-                        selectedPinId === pin.id ? "bg-background border-black shadow-md ring-1 ring-black/5" : "bg-background/50 border-border/60 hover:border-black"
+                        selectedPinId === pin.id ? "bg-background border-foreground shadow-md ring-1 ring-foreground/5" : "bg-background/50 border-border/60 hover:border-foreground"
                       )}
                     >
-                       <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-black text-[10px] font-black text-white shadow-sm">{String.fromCharCode(65 + index)}</span>
+                       <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-foreground text-[10px] font-black text-background shadow-sm">{String.fromCharCode(65 + index)}</span>
                        <div className="min-w-0 flex-1">
                           <h4 className="truncate text-[11px] font-black uppercase tracking-tight text-foreground">{pin.label}</h4>
                           <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 mt-0.5">{pin.category}</p>
@@ -143,7 +206,7 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
                   {route.segments.length > 0 ? (
                     route.segments.map((segment, index) => (
                       <div key={index} className="relative pl-8 before:absolute before:left-[11px] before:top-6 before:h-[calc(100%-16px)] before:w-0.5 before:border-l-2 before:border-dashed before:border-border last:before:hidden py-1">
-                         <div className="absolute left-1 top-2 grid size-4 place-items-center rounded-full bg-black ring-4 ring-surface shadow-sm" />
+                         <div className="absolute left-1 top-2 grid size-4 place-items-center rounded-full bg-foreground ring-4 ring-surface shadow-sm" />
                          
                          <div className="flex items-center justify-between mb-2">
                             <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Segment 0{index + 1}</span>
@@ -156,7 +219,7 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
                             <Navigation size={10} className="text-muted-foreground rotate-90" />
                             <div className="flex flex-col">
                               <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Transit</span>
-                              <span className="text-[9px] font-bold uppercase text-foreground leading-none">{segment.metricSource === "straight-line-estimate" ? "Estimated duration" : formatDuration(segment.duration)}</span>
+                              <span className="text-[9px] font-bold uppercase text-foreground leading-none">{formatDuration(segment.duration)}</span>
                               <span className="mt-1 text-[8px] font-bold uppercase tracking-widest text-muted-foreground/60">{segmentMetricLabel(segment.metricSource)}</span>
                             </div>
                          </div>
@@ -177,34 +240,19 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
                 <PinDetail pin={selectedPin} />
              )}
 
-             {route.missingPlaces.length > 0 && (
-               <section className="rounded-2xl border border-rose-200 bg-rose-50/30 p-6 shadow-inner">
-                  <header className="mb-4 flex items-center gap-2 text-rose-700">
-                     <Info size={14} />
-                     <h2 className="text-[10px] font-black uppercase tracking-widest">Incomplete Mapping</h2>
-                  </header>
-                  <div className="space-y-3">
-                    {route.missingPlaces.map((place) => (
-                      <div key={place.id} className="rounded-lg border border-rose-100 bg-background/80 p-3 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-tight text-foreground">{place.label}</p>
-                        <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-rose-600/70">{place.reason}</p>
-                      </div>
-                    ))}
-                  </div>
-               </section>
-             )}
+             <RouteRealityCheck route={route} googleMapsRouteUrl={googleMapsRouteUrl} />
 
              {googleMapsRouteUrl && (
                <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner">
                   <header className="mb-4 flex items-center gap-2">
-                     <Navigation size={14} className="text-black" />
+                     <Navigation size={14} className="text-foreground" />
                      <h2 className="text-[10px] font-black uppercase tracking-widest text-foreground">Route Actions</h2>
                   </header>
                   <Link
                     href={googleMapsRouteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-black text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 shadow-xl"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-foreground text-[10px] font-black uppercase tracking-widest text-background transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-xl"
                   >
                     <Navigation size={14} /> Open in Google Maps
                   </Link>
@@ -214,7 +262,7 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
              {/* Layer Controls - Always visible at bottom of scroll if list is long */}
              <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner mt-8">
                 <header className="mb-4 flex items-center gap-2">
-                   <Layers size={14} className="text-black" />
+                   <Layers size={14} className="text-foreground" />
                    <h2 className="text-[10px] font-black uppercase tracking-widest text-foreground">Data Layers</h2>
                 </header>
                 <div className="grid grid-cols-2 gap-2">
@@ -225,7 +273,7 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
                       onClick={() => setLayers((current) => ({ ...current, [layer]: !current[layer] }))} 
                       className={cn(
                         "flex h-9 items-center justify-between rounded-lg border px-3 text-left transition-all",
-                        layers[layer] ? "border-black bg-black text-white shadow-lg" : "border-border bg-background text-muted hover:border-black"
+                        layers[layer] ? "border-foreground bg-foreground text-background shadow-lg" : "border-border bg-background text-muted hover:border-foreground"
                       )}
                     >
                       <span className="text-[9px] font-black uppercase tracking-widest">{layerLabels[layer]}</span>
@@ -239,14 +287,13 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
       </aside>
 
       {/* Main Map Stage */}
-      <main className="relative min-h-[420px] flex-1 overflow-hidden bg-zinc-900 lg:min-h-0">
+      <main className="relative min-h-[420px] flex-1 overflow-hidden bg-background lg:min-h-0">
         {browserMapApiKey && route.center ? (
           <GoogleBrowserMap
             apiKey={browserMapApiKey}
             route={route}
             visiblePins={visiblePins}
             selectedPinId={selectedPinId}
-            layers={layers}
             onSelectPin={(pinId) => {
               setSelectedPinId(pinId);
               setSidebarTab("detail");
@@ -260,8 +307,6 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
             selectedPinId={selectedPinId}
             mapImageUrl={mapImageUrl}
             positions={positions}
-            routePositions={routePositions}
-            layers={layers}
             zoom={zoom}
             setZoom={setZoom}
             setCenter={setCenter}
@@ -279,13 +324,13 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
         {isEmpty && (
            <div className="absolute inset-0 z-40 grid place-items-center bg-black/40 backdrop-blur-sm p-8 text-center">
               <div className="max-w-xs rounded-2xl border border-border bg-background p-8 shadow-2xl">
-                 <MapPin className="mx-auto size-12 text-black opacity-40 mb-6" />
+                 <MapPin className="mx-auto size-12 text-foreground opacity-40 mb-6" />
                  <h2 className="text-xl font-black uppercase tracking-tighter text-foreground">Awaiting Points</h2>
                  <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-relaxed">
                     Pin places in discovery or generate an itinerary to unlock the immersive route preview.
                  </p>
                  <Link href="/discover" className="mt-8 block">
-                    <button className="h-11 w-full bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-800 transition-all">Explore Places</button>
+                    <button className="h-11 w-full bg-foreground text-background text-[10px] font-black uppercase tracking-widest rounded-lg shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all">Explore Places</button>
                  </Link>
               </div>
            </div>
@@ -302,8 +347,6 @@ type StaticMapFallbackProps = {
   selectedPinId: string;
   mapImageUrl: string | null;
   positions: Array<{ pin: RoutePin; left: number; top: number }>;
-  routePositions: Array<{ pin: RoutePin; left: number; top: number }>;
-  layers: Record<LayerKey, boolean>;
   zoom: number;
   setZoom: Dispatch<SetStateAction<number>>;
   setCenter: Dispatch<SetStateAction<{ lat: number; lng: number } | undefined>>;
@@ -319,8 +362,6 @@ function StaticMapFallback({
   selectedPinId,
   mapImageUrl,
   positions,
-  routePositions,
-  layers,
   setZoom,
   setCenter,
   handleWheel,
@@ -355,30 +396,37 @@ function StaticMapFallback({
         )}
       </div>
 
-      {layers.route && routePositions.length > 1 && (
-        <svg className="pointer-events-none absolute inset-0 z-10 size-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <polyline points={routePositions.map((item) => `${item.left},${item.top}`).join(" ")} fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" vectorEffect="non-scaling-stroke" className="opacity-80" />
-        </svg>
-      )}
-
       {positions.map(({ pin, left, top }, index) => (
         <button
           key={pin.id}
           type="button"
           onClick={() => onSelectPin(pin.id)}
           className={cn(
-            "absolute z-20 grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-[10px] font-black shadow-2xl transition-all hover:z-30 hover:scale-125",
-            selectedPinId === pin.id ? "scale-110 border-white bg-black text-white" : "border-border bg-white text-foreground",
+            "absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border-2 p-1 shadow-2xl transition-all hover:z-30",
+            selectedPinId === pin.id ? "scale-110 border-background bg-foreground pr-4" : "border-border bg-background",
           )}
           style={{ left: `${left}%`, top: `${top}%` }}
         >
-          {String.fromCharCode(65 + index)}
+          {selectedPinId === pin.id && pin.photoUrl ? (
+            <div className="size-8 overflow-hidden rounded-full border border-white/20">
+               <img src={pin.photoUrl} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className={cn("grid size-8 place-items-center rounded-full font-black text-[10px]", selectedPinId === pin.id ? "text-background" : "text-foreground")}>
+              {String.fromCharCode(65 + index)}
+            </div>
+          )}
+          {selectedPinId === pin.id && (
+            <span className="text-[9px] font-black uppercase tracking-widest text-background whitespace-nowrap animate-in fade-in slide-in-from-left-2">
+               {pin.label}
+            </span>
+          )}
         </button>
       ))}
 
       <div className="absolute right-4 bottom-4 z-30 flex flex-col gap-2 sm:right-8 sm:bottom-8">
-        <button className="grid size-11 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800 sm:size-10" onClick={() => setZoom((current) => Math.min(18, current + 1))}><Plus size={18} className="sm:size-4" /></button>
-        <button className="grid size-11 place-items-center rounded-md bg-black text-white shadow-xl transition-all hover:bg-zinc-800 sm:size-10" onClick={() => setZoom((current) => Math.max(3, current - 1))}><Minus size={18} className="sm:size-4" /></button>
+        <button className="grid size-11 place-items-center rounded-md bg-foreground text-background shadow-xl transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200 sm:size-10" onClick={() => setZoom((current) => Math.min(18, current + 1))}><Plus size={18} className="sm:size-4" /></button>
+        <button className="grid size-11 place-items-center rounded-md bg-foreground text-background shadow-xl transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200 sm:size-10" onClick={() => setZoom((current) => Math.max(3, current - 1))}><Minus size={18} className="sm:size-4" /></button>
         <button
           className="grid size-11 place-items-center rounded-md border border-border bg-background text-foreground shadow-xl transition-all hover:bg-surface sm:size-10"
           onClick={() => {
@@ -398,15 +446,13 @@ type GoogleBrowserMapProps = {
   route: MapRoute;
   visiblePins: RoutePin[];
   selectedPinId: string;
-  layers: Record<LayerKey, boolean>;
   onSelectPin: (pinId: string) => void;
 };
 
-function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, onSelectPin }: GoogleBrowserMapProps) {
+function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, onSelectPin }: GoogleBrowserMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<GoogleMapInstance | null>(null);
   const markersRef = useRef<Map<string, GoogleMarkerInstance>>(new Map());
-  const polylineRef = useRef<GooglePolylineInstance | null>(null);
   const infoWindowRef = useRef<GoogleInfoWindowInstance | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [mapStyle, setMapStyle] = useState<MapStyleKey>("editorial");
@@ -430,7 +476,7 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
           styles: googleMapStyles.editorial,
         });
         infoWindowRef.current = new window.google.maps.InfoWindow();
-        fitRouteBounds(mapRef.current, route.routePins.length ? route.routePins : visiblePins);
+        fitRouteBounds(mapRef.current, visiblePins);
         setStatus("ready");
       })
       .catch(() => setStatus("error"));
@@ -439,13 +485,11 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
       cancelled = true;
       markers.forEach((marker) => marker.setMap(null));
       markers.clear();
-      polylineRef.current?.setMap(null);
-      polylineRef.current = null;
       infoWindowRef.current?.close();
       infoWindowRef.current = null;
       mapRef.current = null;
     };
-  }, [apiKey, route.center, route.routePins, route.zoom, visiblePins]);
+  }, [apiKey, route.center, route.zoom, visiblePins]);
 
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
@@ -479,28 +523,12 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
 
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
-    polylineRef.current?.setMap(null);
-    polylineRef.current = null;
-    if (!layers.route || route.routePins.length < 2) return;
-
-    polylineRef.current = new window.google.maps.Polyline({
-      map: mapRef.current,
-      path: route.routePins.map((pin) => ({ lat: pin.lat, lng: pin.lng })),
-      geodesic: true,
-      strokeColor: "#111111",
-      strokeOpacity: 0.9,
-      strokeWeight: 3,
-    });
-  }, [layers.route, route.routePins, status]);
-
-  useEffect(() => {
-    if (status !== "ready" || !mapRef.current) return;
     mapRef.current.setOptions({ styles: googleMapStyles[mapStyle] });
   }, [mapStyle, status]);
 
   function recenterRoute() {
     if (!mapRef.current) return;
-    fitRouteBounds(mapRef.current, route.routePins.length ? route.routePins : visiblePins);
+    fitRouteBounds(mapRef.current, visiblePins);
   }
 
   if (status === "error") {
@@ -520,7 +548,7 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
       {status === "loading" && <div className="absolute inset-0 animate-pulse bg-zinc-200" />}
       {status === "ready" && (
         <>
-          <div className="absolute left-4 top-4 z-10 flex rounded-xl border border-white/70 bg-white/90 p-1 shadow-xl backdrop-blur sm:left-6 sm:top-6">
+          <div className="absolute left-4 top-4 z-10 flex rounded-xl border border-border bg-background/90 p-1 shadow-xl backdrop-blur sm:left-6 sm:top-6">
             {(Object.keys(mapStyleLabels) as MapStyleKey[]).map((style) => (
               <button
                 key={style}
@@ -528,7 +556,7 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
                 onClick={() => setMapStyle(style)}
                 className={cn(
                   "h-9 rounded-lg px-3 text-[9px] font-black uppercase tracking-widest transition-colors",
-                  mapStyle === style ? "bg-black text-white" : "text-zinc-600 hover:text-black",
+                  mapStyle === style ? "bg-foreground text-background" : "text-muted hover:text-foreground",
                 )}
               >
                 {mapStyleLabels[style]}
@@ -539,7 +567,7 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
           <button
             type="button"
             onClick={() => mapRef.current?.setZoom(Math.min(20, (mapRef.current?.getZoom() ?? route.zoom) + 1))}
-            className="grid size-11 place-items-center rounded-lg bg-black text-white shadow-xl transition-all hover:bg-zinc-800"
+            className="grid size-11 place-items-center rounded-lg bg-foreground text-background shadow-xl transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200"
             aria-label="Zoom in"
           >
             <Plus size={16} />
@@ -547,7 +575,7 @@ function GoogleBrowserMap({ apiKey, route, visiblePins, selectedPinId, layers, o
           <button
             type="button"
             onClick={() => mapRef.current?.setZoom(Math.max(3, (mapRef.current?.getZoom() ?? route.zoom) - 1))}
-            className="grid size-11 place-items-center rounded-lg bg-black text-white shadow-xl transition-all hover:bg-zinc-800"
+            className="grid size-11 place-items-center rounded-lg bg-foreground text-background shadow-xl transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200"
             aria-label="Zoom out"
           >
             <Minus size={16} />
@@ -608,10 +636,6 @@ type GoogleMarkerInstance = {
   addListener(eventName: "click", handler: () => void): void;
 };
 
-type GooglePolylineInstance = {
-  setMap(map: GoogleMapInstance | null): void;
-};
-
 type GoogleInfoWindowInstance = {
   setContent(content: string): void;
   open(options: { map: GoogleMapInstance; anchor: GoogleMarkerInstance }): void;
@@ -655,14 +679,6 @@ declare global {
             labelOrigin: { x: number; y: number };
           };
         }) => GoogleMarkerInstance;
-        Polyline: new (options: {
-          map: GoogleMapInstance;
-          path: Array<{ lat: number; lng: number }>;
-          geodesic: boolean;
-          strokeColor: string;
-          strokeOpacity: number;
-          strokeWeight: number;
-        }) => GooglePolylineInstance;
         InfoWindow: new () => GoogleInfoWindowInstance;
         LatLngBounds: new () => GoogleLatLngBoundsInstance;
       };
@@ -730,7 +746,12 @@ function markerIcon(selected: boolean) {
 
 function infoWindowMarkup(pin: RoutePin) {
   return `
-    <div style="min-width:180px;padding:4px 2px 2px;color:#111111;font-family:inherit;">
+    <div style="min-width:200px;padding:4px;color:#111111;font-family:inherit;">
+      ${pin.photoUrl ? `
+        <div style="width:100%;aspect-ratio:16/9;margin-bottom:12px;overflow:hidden;rounded:12px;background:#f4f4f5;">
+          <img src="${pin.photoUrl}" style="width:100%;height:100%;object-fit:cover;" />
+        </div>
+      ` : ''}
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(pin.label)}</div>
       <div style="margin-top:4px;font-size:10px;color:#52525b;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(pin.category)}</div>
       <div style="margin-top:6px;font-size:10px;color:#71717a;">${escapeHtml(pin.location || "Mapped location")}</div>
@@ -754,37 +775,37 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
        <p className="text-[10px] font-black uppercase tracking-widest text-muted">Select an entity from index</p>
     </div>
   );
-  
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-3 mb-6">
-         <span className="rounded-full bg-surface-2 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-muted-foreground/70 border border-border">
+         <span className="rounded-full bg-surface-2 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-muted-foreground/70 border border-border shadow-sm">
            {pin.category}
          </span>
          {pin.isHiddenGem && (
-           <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase">
+           <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase tracking-tighter">
              <Star size={10} fill="currentColor" /> Hidden Gem
            </span>
          )}
       </div>
-      <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter text-foreground leading-tight sm:leading-none">{pin.label}</h3>
+      <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter text-foreground leading-[0.95]">{pin.label}</h3>
       <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-relaxed">{pin.location}</p>
-      
+
       <div className="mt-8 space-y-2 border-t border-border pt-8">
         <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Telemetric Source</p>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[8px] font-bold uppercase text-muted-foreground border border-border">
+          <span className="rounded bg-surface-2 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted-foreground border border-border shadow-inner">
             {pin.coordinateSource === "google-places-geocoding" ? "Geocoded Estimate" : "Provider Mapped"}
           </span>
-          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[8px] font-bold uppercase text-muted-foreground border border-border">
+          <span className="rounded bg-surface-2 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-muted-foreground border border-border shadow-inner">
             {formatMatchMethod(pin.matchMethod)}
           </span>
         </div>
       </div>
-      
-      <div className="mt-10 pt-10 border-t border-border/50">
-        <button 
-          className="h-12 w-full bg-black text-white shadow-xl hover:bg-zinc-800 font-black text-[10px] uppercase tracking-[0.2em] rounded-lg flex items-center justify-center gap-3 transition-all"
+
+      <div className="mt-10">
+        <button
+          className="h-12 w-full bg-foreground text-background shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 active:scale-[0.98] font-black text-[10px] uppercase tracking-[0.2em] rounded-lg flex items-center justify-center gap-3 transition-all"
           onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${pin.label} ${pin.lat},${pin.lng}`)}`, "_blank")}
         >
           <Navigation size={14} /> Open Navigation
@@ -793,14 +814,13 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
     </div>
   );
 }
-
 function SidebarTab({ active, label, onClick }: { active: boolean, label: string, onClick: () => void }) {
   return (
     <button 
       onClick={onClick}
       className={cn(
         "flex-1 text-[10px] font-black uppercase tracking-widest py-4 border-b-2 transition-all",
-        active ? "text-foreground border-black" : "text-muted-foreground/40 border-transparent hover:text-foreground"
+        active ? "text-foreground border-foreground" : "text-muted-foreground/40 border-transparent hover:text-foreground"
       )}
     >
       {label}
@@ -812,7 +832,7 @@ function SummaryItem({ icon: Icon, label, value }: { icon: LucideIcon, label: st
   return (
     <div className="min-w-0">
       <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-        <Icon size={12} className="text-black" /> {label}
+        <Icon size={12} className="text-foreground" /> {label}
       </p>
       <p className="mt-1 text-xl font-bold text-foreground truncate uppercase tracking-tight leading-none">{value}</p>
     </div>
@@ -821,7 +841,7 @@ function SummaryItem({ icon: Icon, label, value }: { icon: LucideIcon, label: st
 
 function formatMatchMethod(method?: string) {
   switch (method) {
-    case "matched-by-name": return "Name match";
+    case "matched-by-name": return "Name-only match";
     case "linked-record": return "Linked record";
     case "saved-place": return "Saved order";
     case "unlinked-itinerary-item": return "Text only";

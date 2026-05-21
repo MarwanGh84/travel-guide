@@ -257,7 +257,7 @@ export default function TripsPage() {
                   key={s} 
                   className={cn(
                     "flex items-center gap-3 rounded-md px-3 py-2 text-xs font-bold transition-all",
-                    i === step ? "bg-black text-white shadow-lg translate-x-2" : i < step ? "text-emerald-600" : "text-muted"
+                    i === step ? "bg-foreground text-background shadow-lg translate-x-2" : i < step ? "text-emerald-600 dark:text-emerald-500" : "text-muted"
                   )}
                >
                   <span className="grid size-4 place-items-center rounded-full border border-current text-[8px]">
@@ -345,7 +345,8 @@ export default function TripsPage() {
               <div className={cn("space-y-8 sm:space-y-10", step !== 3 && "hidden")}>
                 <div className="flex flex-wrap gap-2">
                    {interestsList.map((interest) => (
-                     <label key={interest} className="group flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all hover:border-black has-[:checked]:bg-black has-[:checked]:text-white shadow-sm">
+                     <label key={interest} className="group flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all hover:border-foreground has-[:checked]:bg-foreground has-[:checked]:text-background shadow-sm">
+
                         <input name="interests" value={interest} type="checkbox" className="hidden" />
                         {interest}
                      </label>
@@ -374,7 +375,7 @@ export default function TripsPage() {
               type="button" 
               onClick={() => setStep((current) => Math.max(0, current - 1))} 
               disabled={step === 0} 
-              className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-4 sm:px-5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-black disabled:opacity-30 transition-all"
+              className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-4 sm:px-5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-foreground disabled:opacity-30 transition-all"
             >
               <ArrowLeft size={12} /> <span className="hidden xs:inline">Back</span>
             </button>
@@ -383,7 +384,7 @@ export default function TripsPage() {
               <button 
                 type="button" 
                 onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} 
-                className="flex h-10 items-center gap-2 rounded-md bg-black px-5 sm:px-6 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg hover:bg-zinc-800 transition-all"
+                className="flex h-10 items-center gap-2 rounded-md bg-foreground px-5 sm:px-6 text-[10px] font-bold uppercase tracking-widest text-background shadow-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
               >
                 <span className="hidden xs:inline">Continue</span><span className="xs:hidden">Next</span> <ArrowRight size={12} />
               </button>
@@ -416,7 +417,7 @@ function DeleteTripDialog({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="delete-trip-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="delete-trip-title">
       <div className="w-full max-w-sm rounded-xl border border-border bg-background p-5 shadow-xl">
         <div className="flex items-start gap-3">
           <div className="grid size-9 shrink-0 place-items-center rounded-md border border-rose-200 bg-rose-50 text-rose-600">
@@ -445,7 +446,7 @@ function DeleteTripDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-rose-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-rose-600 px-4 text-sm font-semibold text-background transition-colors hover:bg-rose-700 disabled:opacity-50"
           >
             {busy && <Loader2 size={14} className="animate-spin" />}
             Delete trip
@@ -485,7 +486,7 @@ function TripSubmitButton() {
   return (
     <button
       disabled={pending}
-      className="mt-10 flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-black text-xs font-black uppercase tracking-[0.2em] text-white shadow-2xl transition-all hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-70"
+      className="mt-10 flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-foreground text-xs font-black uppercase tracking-[0.2em] text-background shadow-2xl transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:cursor-wait disabled:opacity-70"
     >
       <WandSparkles size={18} />
       {pending ? "Initializing sector" : "Commit Protocol"}

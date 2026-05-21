@@ -23,6 +23,8 @@ describe("budget regressions", () => {
     pageDeps.getPrimaryTrip.mockResolvedValue({
       budget: 2400,
       currency: "USD",
+      startDate: new Date("2026-05-18T00:00:00.000Z"),
+      endDate: new Date("2026-05-20T00:00:00.000Z"),
       destinationCountry: "Lebanon",
       budgetCategories: [{ name: "Food", estimatedAmount: 500, actualAmount: 0 }],
       expenses: [
@@ -35,6 +37,8 @@ describe("budget regressions", () => {
           spentAt: new Date("2026-05-18T12:00:00.000Z"),
         },
       ],
+      itineraryDays: [],
+      bookings: [],
     });
 
     const element = await BudgetPage();

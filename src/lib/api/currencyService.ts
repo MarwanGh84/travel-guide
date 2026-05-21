@@ -9,11 +9,29 @@ export type ExchangeRate = {
 };
 
 export async function getExchangeRate(base = "USD", quote = "EUR"): Promise<ExchangeRate> {
+  // Handle same currency pair
+  if (base.toUpperCase() === quote.toUpperCase()) {
+    return {
+      base: base.toUpperCase(),
+      quote: quote.toUpperCase(),
+      rate: 1,
+      source: {
+        provider: "internal",
+        isMock: false,
+        classification: "computed",
+        note: "Same currency pair.",
+      },
+    };
+  }
+
   try {
     const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${quote}`, {
       next: { revalidate: 60 * 60 * 12 },
     });
-    if (!response.ok) return fallbackRate(base, quote, `Frankfurter failed with ${response.status}.`);
+    if (!response.ok) {
+      const errorDetail = response.status === 422 ? "Invalid or unsupported currency code." : `Frankfurter failed with ${response.status}.`;
+      return fallbackRate(base, quote, errorDetail);
+    }
     const data = FrankfurterResponseSchema.parse(await response.json());
     const rate = data.rates?.[quote];
     if (!rate) return fallbackRate(base, quote, "Frankfurter did not return this currency pair.");

@@ -1,9 +1,10 @@
 import OpenAI from "openai";
 import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
+import type { WeatherSummary } from "@/lib/api/weatherService";
 import { tripLength } from "@/lib/utils";
 import { AiDestinationsResponseSchema, AiItineraryResponseSchema } from "@/lib/validation/schemas";
 
-const model = "gpt-5.5";
+const model = "gpt-4o";
 
 function getClient() {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -40,7 +41,11 @@ export async function structuredJson<T>(
   }
 }
 
-export async function generateFullItinerary(trip: TripDraft, savedPlaces: PlaceRecommendation[] = []) {
+export async function generateFullItinerary(
+  trip: TripDraft, 
+  savedPlaces: PlaceRecommendation[] = [],
+  weather: WeatherSummary | null = null
+) {
   const length = tripLength(trip.startDate, trip.endDate);
   
   // Build a compact context for the AI
@@ -53,6 +58,13 @@ export async function generateFullItinerary(trip: TripDraft, savedPlaces: PlaceR
       p.category.toLowerCase().includes(c)
     )
   }));
+
+  const weatherContext = weather ? weather.daily.map(d => ({
+    date: d.date,
+    label: d.label,
+    rainChance: d.rainChance,
+    risk: d.rainChance > 40 ? "high" : d.rainChance > 20 ? "medium" : "low"
+  })) : [];
 
   const paceConstraints: Record<string, string> = {
     slow: "2-3 key places/day",
@@ -70,6 +82,10 @@ Constraints:
 3. GROUNDING: Use ONLY the provided place names and IDs for real locations.
 4. JSON: The "placeIds" array must contain the IDs from the provided list. The "placesIncluded" should contain their names.
 5. PROSE: Mention the chosen places by name inside the morningPlan, afternoonPlan, or eveningPlan.
+6. WEATHER AWARENESS: If weather risk for a day is "high" or "medium", strictly AVOID outdoor viewpoints, parks, or walking tours for that date. Prioritize indoor activities (museums, galleries, dining).
+
+Weather Forecast:
+${JSON.stringify(weatherContext, null, 2)}
 
 Available provider-backed places:
 ${JSON.stringify(placeContext, null, 2)}

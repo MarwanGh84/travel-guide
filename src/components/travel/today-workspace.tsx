@@ -39,7 +39,7 @@ export function TodayWorkspace({ day }: { day?: ItineraryDay }) {
                 key={item} 
                 type="button" 
                 onClick={() => setPrompt(item)}
-                className="rounded-md border border-border bg-background px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-muted hover:text-black hover:border-black transition-all"
+                className="rounded-md border border-border bg-background px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-muted hover:text-foreground hover:border-foreground transition-all"
               >
                 {item}
               </button>
@@ -57,29 +57,29 @@ export function TodayWorkspace({ day }: { day?: ItineraryDay }) {
         type="button" 
         onClick={ask} 
         disabled={!day || loading}
-        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-black text-[10px] font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 disabled:opacity-30 transition-all"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-background text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-30 transition-all"
       >
         {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
         Request Logic Adjustment
       </button>
 
       {answer && (
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-           <div className="flex items-center gap-2 text-emerald-600 mb-3">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 mb-3">
               <CheckCircle2 size={12} />
               <span className="text-[9px] font-black uppercase tracking-widest">AI Proposal Generated</span>
            </div>
-           <p className="text-xs font-bold leading-relaxed text-emerald-900 uppercase tracking-tight">{answer}</p>
+           <p className="text-xs font-bold leading-relaxed text-emerald-900 dark:text-emerald-400 uppercase tracking-tight">{answer}</p>
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-rose-100 bg-rose-50/30 p-5">
-           <div className="flex items-center gap-2 text-rose-600 mb-2">
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-5">
+           <div className="flex items-center gap-2 text-rose-600 dark:text-rose-500 mb-2">
               <MessageSquare size={12} />
               <span className="text-[9px] font-black uppercase tracking-widest">Protocol Error</span>
            </div>
-           <p className="text-[10px] font-bold text-rose-800 uppercase tracking-wide">{error}</p>
+           <p className="text-[10px] font-bold text-rose-800 dark:text-rose-400 uppercase tracking-wide">{error}</p>
         </div>
       )}
     </section>

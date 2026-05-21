@@ -6,6 +6,7 @@ import { AiItineraryRequestSchema } from "@/lib/validation/schemas";
 import { normalizeName } from "@/lib/utils";
 import type { QualitySummary, PlaceRecommendation } from "@/lib/types/travel";
 import { canonicalizeDayWithQuality } from "@/lib/ai/itineraryQuality";
+import { getWeatherSummary } from "@/lib/api/weatherService";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -26,7 +27,9 @@ export async function POST(request: Request) {
   
   const planningPlaces = (places.length ? places : (selectedPlaces.length ? selectedPlaces : toPlaceRecommendations(trip))) as unknown as PlaceRecommendation[];
 
-  const result = await generateFullItinerary(tripDraft, planningPlaces);
+  const destination = trip.destination || trip.destinationCountry || "";
+  const weather = destination ? await getWeatherSummary(destination) : null;
+  const result = await generateFullItinerary(tripDraft, planningPlaces, weather);
 
   if (save && result.ok) {
     const allRecommendations = (await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } })) as unknown as PlaceRecommendation[];

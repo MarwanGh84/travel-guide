@@ -12,6 +12,7 @@ const primaryTripInclude = Prisma.validator<Prisma.TripInclude>()({
   budgetCategories: true,
   expenses: true,
   bookings: true,
+  bookingChecklist: true,
   documentNotes: true,
   memories: true,
   destinationIntel: true,
@@ -163,6 +164,7 @@ export function toPlaceRecommendations(trip: PrimaryTrip): PlaceRecommendation[]
     costLevel: normalizeCostLevel(place.costLevel),
     location: place.location,
     coordinates: place.latitude && place.longitude ? { lat: place.latitude, lng: place.longitude } : undefined,
+    photoUrl: place.photoUrl ?? undefined,
     openingStatus: place.openingStatus ?? undefined,
     whyRecommended: place.whyRecommended,
     isHiddenGem: place.isHiddenGem,
@@ -189,6 +191,7 @@ export function toSelectedPlaceRecommendations(trip: PrimaryTrip): PlaceRecommen
         costLevel: normalizeCostLevel(place.costLevel),
         location: place.location,
         coordinates: place.latitude && place.longitude ? { lat: place.latitude, lng: place.longitude } : undefined,
+        photoUrl: place.photoUrl ?? undefined,
         openingStatus: place.openingStatus ?? undefined,
         whyRecommended: place.whyRecommended,
         isHiddenGem: place.isHiddenGem,
@@ -250,6 +253,7 @@ export function toItineraryDays(trip: PrimaryTrip): ItineraryDay[] {
               typeof item.placeRecommendation.longitude === "number"
                 ? { lat: item.placeRecommendation.latitude, lng: item.placeRecommendation.longitude }
                 : undefined,
+            photoUrl: item.placeRecommendation.photoUrl ?? undefined,
             openingStatus: item.placeRecommendation.openingStatus ?? undefined,
             whyRecommended: item.placeRecommendation.whyRecommended,
             isHiddenGem: item.placeRecommendation.isHiddenGem,
@@ -352,6 +356,10 @@ export function parseNumberField(value: FormDataEntryValue | null, fallback = 0)
   return Number.isFinite(number) ? number : fallback;
 }
 
+export function parseBooleanField(value: FormDataEntryValue | null) {
+  return value === "on" || value === "true";
+}
+
 export function splitList(value: string) {
   return value
     .split(",")
@@ -380,4 +388,41 @@ export async function createDefaultTripChildren(tripId: string) {
     { tripId, name: "Emergency buffer", estimatedAmount: 0, actualAmount: 0 },
   ];
   await prisma.budgetCategory.createMany({ data: budgetData });
+
+  const checklistData: Prisma.BookingChecklistItemCreateManyInput[] = [
+    { tripId, key: "flights", label: "Flights" },
+    { tripId, key: "stay", label: "Hotel / Stay" },
+    { tripId, key: "transfer", label: "Airport transfer" },
+    { tripId, key: "insurance", label: "Travel insurance" },
+    { tripId, key: "activities", label: "Main activities" },
+    { tripId, key: "restaurants", label: "Restaurant reservations" },
+    { tripId, key: "car", label: "Car rental" },
+    { tripId, key: "visa", label: "Visa" },
+    { tripId, key: "passport", label: "Passport validity" },
+    { tripId, key: "sim", label: "SIM / roaming" },
+    { tripId, key: "money", label: "Cash / card" },
+  ];
+  await prisma.bookingChecklistItem.createMany({ data: checklistData });
+}
+
+export async function ensureBookingChecklist(tripId: string) {
+  const count = await prisma.bookingChecklistItem.count({ where: { tripId } });
+  if (count === 0) {
+    const checklistData: Prisma.BookingChecklistItemCreateManyInput[] = [
+      { tripId, key: "flights", label: "Flights" },
+      { tripId, key: "stay", label: "Hotel / Stay" },
+      { tripId, key: "transfer", label: "Airport transfer" },
+      { tripId, key: "insurance", label: "Travel insurance" },
+      { tripId, key: "activities", label: "Main activities" },
+      { tripId, key: "restaurants", label: "Restaurant reservations" },
+      { tripId, key: "car", label: "Car rental" },
+      { tripId, key: "visa", label: "Visa" },
+      { tripId, key: "passport", label: "Passport validity" },
+      { tripId, key: "sim", label: "SIM / roaming" },
+      { tripId, key: "money", label: "Cash / card" },
+    ];
+    await prisma.bookingChecklistItem.createMany({ data: checklistData });
+    return prisma.bookingChecklistItem.findMany({ where: { tripId } });
+  }
+  return null;
 }

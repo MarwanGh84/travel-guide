@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   FileText, 
   Save, 
   Trash2,
   PlusCircle,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle,
+  ShieldAlert,
+  Calendar,
+  Globe,
+  User,
+  ShieldCheck
 } from "lucide-react";
 import { addDocumentNote, deleteDocumentNote, updateDocumentNote } from "@/app/actions";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,6 +28,11 @@ type DocumentNote = {
   type: string;
   content: string;
   link?: string | null;
+  documentType?: string | null;
+  expiryDate?: Date | string | null;
+  isSensitive?: boolean;
+  travelerName?: string | null;
+  issuingCountry?: string | null;
   importGroupId?: string | null;
 };
 
@@ -30,12 +41,59 @@ type DocumentsWorkspaceProps = {
   tripName: string;
 };
 
+const documentTypes = [
+  "Passport",
+  "Visa",
+  "Travel insurance",
+  "Flight ticket",
+  "Hotel booking",
+  "Activity ticket",
+  "Car rental",
+  "ID",
+  "Other"
+];
+
 export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps) {
   const router = useRouter();
   const [selectedNoteId, setSelectedNoteId] = useState(notes[0]?.id ?? "");
   const [createMode, setCreateMode] = useState(false);
   const resolvedSelectedNoteId = notes.some((note) => note.id === selectedNoteId) ? selectedNoteId : notes[0]?.id ?? "";
   const activeNote = notes.find((note) => note.id === resolvedSelectedNoteId);
+
+  // Intelligence: Missing Documents & Expiry Warnings
+  const warnings = useMemo(() => {
+    const today = new Date();
+    const list: { type: "missing" | "expiry", message: string }[] = [];
+    
+    const hasType = (t: string) => notes.some(n => n.documentType === t);
+
+    // Missing checks
+    if (!hasType("Passport")) list.push({ type: "missing", message: "Passport record is missing." });
+    if (!hasType("Visa")) list.push({ type: "missing", message: "Visa record is missing." });
+    if (!hasType("Travel insurance")) list.push({ type: "missing", message: "Travel insurance is missing." });
+    if (!hasType("Hotel booking")) list.push({ type: "missing", message: "Hotel confirmation is missing." });
+    if (!hasType("Flight ticket")) list.push({ type: "missing", message: "Flight ticket is missing." });
+
+    // Expiry checks
+    notes.forEach(note => {
+      if (note.expiryDate) {
+        const expiry = new Date(note.expiryDate);
+        const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+          list.push({ type: "expiry", message: `${note.documentType || note.title} has EXPIRED.` });
+        } else if (diffDays < 30) {
+          list.push({ type: "expiry", message: `${note.documentType || note.title} expires in ${diffDays} days.` });
+        } else if (diffDays < 180 && note.documentType === "Passport") {
+          list.push({ type: "expiry", message: `Passport expires in less than 6 months (${diffDays} days).` });
+        }
+      } else if (note.documentType === "Passport") {
+        list.push({ type: "expiry", message: "Passport expiry date is not recorded." });
+      }
+    });
+
+    return list;
+  }, [notes]);
 
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
@@ -54,11 +112,29 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                setCreateMode(true);
                setSelectedNoteId("");
              }}
-             className="grid size-7 place-items-center rounded-md bg-black text-white hover:bg-zinc-800 transition-all"
+             className="grid size-7 place-items-center rounded-md bg-foreground text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
            >
               <PlusCircle size={14} />
            </button>
         </div>
+
+        {/* Intelligence Panel */}
+        {warnings.length > 0 && (
+          <div className="border-b border-border bg-amber-500/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={14} className="text-amber-600 dark:text-amber-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">Readiness Check</span>
+            </div>
+            <div className="space-y-1.5">
+              {warnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-2 text-[9px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                  <span className={cn("mt-0.5 size-1.5 shrink-0 rounded-full", w.type === "missing" ? "bg-amber-400" : "bg-rose-500")} />
+                  {w.message}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 overflow-x-auto p-4 lg:flex-1 lg:flex-col lg:overflow-x-visible lg:p-0 lg:divide-y lg:divide-border/50 no-scrollbar">
            {notes.map((note) => (
@@ -71,7 +147,7 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                 className={cn(
                   "shrink-0 w-[240px] flex flex-col gap-1 p-3 rounded-xl border transition-all lg:w-full lg:rounded-none lg:border-none lg:p-4 lg:text-left",
                   resolvedSelectedNoteId === note.id 
-                    ? "bg-background border-black shadow-sm lg:ring-1 lg:ring-inset lg:ring-border" 
+                    ? "bg-background border-foreground shadow-sm lg:ring-1 lg:ring-inset lg:ring-border" 
                     : "bg-background/50 border-border lg:hover:bg-background/50"
                 )}
              >
@@ -79,10 +155,13 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                    <h4 className={cn("truncate text-xs font-bold uppercase tracking-tight", resolvedSelectedNoteId === note.id ? "text-foreground" : "text-muted-2")}>
                       {note.title}
                    </h4>
-                   {note.importGroupId && <div className="size-1.5 shrink-0 rounded-full bg-emerald-500" />}
+                   <div className="flex items-center gap-1.5">
+                      {note.isSensitive && <ShieldAlert size={10} className="text-amber-600" />}
+                      {note.importGroupId && <div className="size-1.5 shrink-0 rounded-full bg-emerald-500" />}
+                   </div>
                 </div>
                 <p className="truncate text-[9px] font-bold uppercase tracking-widest text-muted">
-                  {note.type}{note.importGroupId ? " · GMAIL" : ""}
+                  {note.documentType || note.type}{note.importGroupId ? " · GMAIL" : ""}
                 </p>
              </button>
            ))}
@@ -136,7 +215,7 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                            <Trash2 size={12} /> <span className="hidden xs:inline">Remove</span>
                         </button>
                      )}
-                     <button type="submit" className="flex h-8 flex-1 items-center justify-center gap-2 rounded-md bg-black px-4 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-zinc-800 transition-all sm:flex-none">
+                     <button type="submit" className="flex h-8 flex-1 items-center justify-center gap-2 rounded-md bg-foreground px-4 text-[10px] font-bold uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all sm:flex-none">
                         <Save size={12} /> {createMode ? "Create" : "Update"}
                      </button>
                   </div>
@@ -163,19 +242,93 @@ export function DocumentsWorkspace({ notes, tripName }: DocumentsWorkspaceProps)
                              </a>
                            )}
                         </div>
+
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+                                 <FileText size={10} /> Document Type
+                              </label>
+                              <select 
+                                 name="documentType" 
+                                 defaultValue={activeNote?.documentType ?? ""} 
+                                 className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:ring-1 focus:ring-foreground"
+                              >
+                                 <option value="">None</option>
+                                 {documentTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+                                 <Calendar size={10} /> Expiry Date
+                              </label>
+                              <Input 
+                                 name="expiryDate" 
+                                 type="date" 
+                                 defaultValue={activeNote?.expiryDate ? new Date(activeNote.expiryDate).toISOString().slice(0, 10) : ""} 
+                                 className="h-10 bg-surface focus:ring-foreground" 
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+                                 <User size={10} /> Traveler Name
+                              </label>
+                              <Input 
+                                 name="travelerName" 
+                                 defaultValue={activeNote?.travelerName ?? ""} 
+                                 placeholder="As on document" 
+                                 className="h-10 bg-surface focus:ring-foreground" 
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-2">
+                                 <Globe size={10} /> Issuing Country
+                              </label>
+                              <Input 
+                                 name="issuingCountry" 
+                                 defaultValue={activeNote?.issuingCountry ?? ""} 
+                                 placeholder="e.g. USA" 
+                                 className="h-10 bg-surface focus:ring-foreground" 
+                              />
+                           </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4">
+                           <input 
+                              type="checkbox" 
+                              name="isSensitive" 
+                              id="isSensitive"
+                              defaultChecked={activeNote?.isSensitive}
+                              className="size-4 rounded border-border text-foreground focus:ring-foreground" 
+                           />
+                           <label htmlFor="isSensitive" className="flex flex-1 items-center gap-2 text-[10px] font-black uppercase tracking-widest text-foreground cursor-pointer">
+                              <ShieldAlert size={14} className="text-amber-600 dark:text-amber-500" />
+                              Mark as sensitive document
+                           </label>
+                        </div>
+
+                        {activeNote?.isSensitive && (
+                          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3">
+                             <AlertCircle size={16} className="shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+                             <p className="text-[10px] font-medium text-amber-900 dark:text-amber-200 uppercase tracking-widest leading-relaxed">
+                                Marked sensitive, but files are still stored locally and are not encrypted. 
+                                Avoid uploading extremely confidential information.
+                             </p>
+                          </div>
+                        )}
+
                         {activeNote?.link && isUploadedFile(activeNote.link) && (
                           <AttachmentPreview href={activeNote.link} />
                         )}
-                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-[10px] font-medium text-amber-900 uppercase tracking-widest">
-                          Local storage active · Not encrypted
+                        <div className="rounded-xl border border-border bg-surface/50 p-4 text-[10px] font-medium text-muted uppercase tracking-widest flex items-center gap-2">
+                          <ShieldCheck size={14} /> Local storage active · Not encrypted
                         </div>
                         <Input name="link" defaultValue={activeNote?.link ?? ""} placeholder="Optional reference URL" className="h-10 bg-surface text-sm sm:h-9" />
                         <Input name="file" type="file" className="h-10 bg-surface text-sm sm:h-9 pt-2" />
                         <Textarea 
                            name="content"
                            defaultValue={activeNote?.content ?? ""}
-                           className="min-h-[300px] sm:min-h-[400px] border-none bg-surface p-6 sm:p-8 text-base leading-relaxed text-muted-2 focus:ring-1 focus:ring-border rounded-xl shadow-inner"
-                           placeholder="Detailed notes and observations..."
+                           className="min-h-[200px] sm:min-h-[250px] border-none bg-surface p-6 sm:p-8 text-base leading-relaxed text-muted-2 focus:ring-1 focus:ring-border rounded-xl shadow-inner"
+                           placeholder="Additional notes, confirmation numbers, or context..."
                         />
                      </section>
                   </div>
@@ -227,7 +380,7 @@ function AttachmentPreview({ href }: { href: string }) {
           <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted">{displayExtension}</p>
         </div>
         <div className="flex items-center gap-2">
-          <a href={href} download className="rounded-md bg-black px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-zinc-800">
+          <a href={href} download className="rounded-md bg-foreground px-3 py-2 text-[10px] font-black uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200">
             Download
           </a>
         </div>

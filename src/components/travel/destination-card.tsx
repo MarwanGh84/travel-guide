@@ -32,7 +32,7 @@ export function DestinationCard({ destination }: { destination: DestinationRecom
       <div className="grid gap-2 text-sm leading-6 text-[var(--muted)]">
         <p><Star className="mr-2 inline text-[var(--amber)]" />{destination.bestThingsToDo.slice(0, 3).join(", ")}</p>
       </div>
-      <div className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-[var(--muted)]">
+      <div className="rounded-[8px] border border-border bg-surface-2 p-3 text-sm leading-6 text-[var(--muted)]">
         <div className="mb-2 flex flex-wrap gap-2">
           <StatusBadge tone="warm">AI estimate</StatusBadge>
           <StatusBadge>Not live provider data</StatusBadge>
@@ -54,7 +54,7 @@ export function DestinationCard({ destination }: { destination: DestinationRecom
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
+    <div className="rounded-[8px] border border-border bg-surface-2 p-3">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
       <p className="mt-1 font-black text-[var(--foreground)]">{value}</p>
     </div>
