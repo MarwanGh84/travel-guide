@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
   Bed, 
   Search, 
@@ -13,6 +14,7 @@ import {
   Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { StayZoneRecommendation, HotelSearchSuggestion } from "@/lib/types/stays";
 
@@ -24,7 +26,23 @@ type StaysWorkspaceProps = {
 };
 
 export function StaysWorkspace({ strategy, zones, searchSuggestions, destination }: StaysWorkspaceProps) {
-  const [selectedZoneId, setSelectedZoneId] = useState(zones[0]?.id ?? "");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const selectedZoneId = searchParams.get("zoneId") || (zones[0]?.id ?? "");
+
+  const updateUrl = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null) {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [router, pathname, searchParams]);
 
   const activeZone = zones.find(z => z.id === selectedZoneId) ?? zones[0];
 
@@ -52,7 +70,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                 {zones.map((zone) => (
                   <button
                     key={zone.id}
-                    onClick={() => setSelectedZoneId(zone.id)}
+                    onClick={() => updateUrl({ zoneId: zone.id })}
                     className={cn(
                       "min-w-[240px] shrink-0 rounded-xl border p-4 text-left transition-all group lg:min-w-0 lg:shrink",
                       selectedZoneId === zone.id 
@@ -142,8 +160,13 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                        <article key={i} className="group rounded-2xl border-2 border-border bg-background overflow-hidden hover:border-foreground transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]">
                           <div className="aspect-[16/10] w-full overflow-hidden bg-muted relative">
                              {hotel.photoUrl ? (
-                               // eslint-disable-next-line @next/next/no-img-element -- Intentional use of external provider photo URL
-                               <img src={hotel.photoUrl} alt={hotel.name} className="h-full w-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105" />
+                               <Image 
+                                 src={hotel.photoUrl} 
+                                 alt={hotel.name} 
+                                 fill 
+                                 className="h-full w-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105" 
+                                 unoptimized
+                               />
                              ) : (
                                <div className="h-full w-full flex items-center justify-center text-muted-foreground opacity-20">
                                   <Bed size={48} strokeWidth={1} />
@@ -182,16 +205,14 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                              ) : null}
 
                              <div className="mt-6 pt-6 border-t border-border/50">
-                                {hotel.bookingLink && (
-                                  <a 
-                                    href={hotel.bookingLink} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="h-10 w-full rounded-lg bg-foreground px-5 text-[10px] font-black uppercase tracking-widest text-background shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 active:scale-95"
-                                  >
-                                     Review <ArrowUpRight size={14} />
-                                  </a>
-                                )}
+                                <a 
+                                  href={hotel.bookingLink || `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(`${hotel.name} ${hotel.area} ${destination}`)}`} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                  className="h-10 w-full rounded-lg bg-foreground px-5 text-[10px] font-black uppercase tracking-widest text-background shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 active:scale-95"
+                                >
+                                   {hotel.bookingLink ? "Review" : "Search on Booking.com"} <ArrowUpRight size={14} />
+                                </a>
                              </div>
                           </div>
                        </article>
@@ -232,7 +253,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                         {searchSuggestions.filter(s => s.area === activeZone.areaName || s.area === destination).map((suggestion, i) => (
                           <button 
                             key={i}
-                            onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(suggestion.query)}`, "_blank")}
+                            onClick={() => window.open(`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(suggestion.query)}`, "_blank")}
                             className="flex items-center justify-between rounded-2xl border-2 border-border bg-surface p-6 text-left hover:border-foreground transition-all duration-300 group shadow-sm hover:shadow-xl active:scale-[0.98]"
                           >
                              <div className="flex items-center gap-4">

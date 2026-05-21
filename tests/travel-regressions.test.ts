@@ -166,6 +166,7 @@ describe("travel regression helpers", () => {
             whyRecommended: "Historic",
             hiddenGemScore: 50,
             isHiddenGem: false,
+            photoUrl: null,
             source: "google-places",
             createdAt: new Date(),
           },

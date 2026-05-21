@@ -29,9 +29,6 @@ export default function RootLayout({
       <body className="min-h-full">
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
         >
           <AppShell>{children}</AppShell>
         </ThemeProvider>

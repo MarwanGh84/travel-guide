@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import Image from "next/image";
 import { 
   ChevronRight, 
   Sparkles, 
@@ -152,7 +152,14 @@ export default async function Home() {
           
           {/* Main Visual - The Destination */}
           <section className="relative min-h-[300px] overflow-hidden rounded-2xl border border-border shadow-sm lg:col-span-7 lg:row-span-4 lg:min-h-0">
-             <img src={imageForDestination(trip.destination, trip.destinationCountry, 1200, 800)} alt="" className="h-full w-full object-cover grayscale-[0.2] brightness-[0.8]" />
+             <Image 
+               src={imageForDestination(trip.destination, trip.destinationCountry, 1200, 800)} 
+               alt={trip.destination || "Destination"} 
+               fill 
+               className="object-cover grayscale-[0.2] brightness-[0.8]" 
+               priority
+               unoptimized
+             />
              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
              <div className="absolute bottom-6 left-6 lg:bottom-10 lg:left-10 text-white">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Live Environment Telemetry</p>
@@ -251,7 +258,13 @@ export default async function Home() {
              <div className="flex min-h-[120px] flex-1 gap-px bg-border/40 lg:min-h-0">
                 {selectedPlaces.slice(0, 6).map((place) => (
                   <div key={place.id} className="relative flex-1 group overflow-hidden bg-background first:rounded-bl-xl last:rounded-br-xl">
-                     <img src={imageForPlace(place)} alt="" className="h-full w-full object-cover grayscale brightness-[0.7] group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-700" />
+                     <Image 
+                       src={imageForPlace(place)} 
+                       alt={place.name} 
+                       fill
+                       className="object-cover grayscale brightness-[0.7] group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-700" 
+                       unoptimized
+                     />
                      <div className="absolute inset-0 flex flex-col justify-end p-4 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/60 backdrop-blur-[2px]">
                         <h4 className="text-[10px] font-black uppercase truncate tracking-tight">{place.name}</h4>
                         <p className="mt-1 text-[8px] font-bold tracking-[0.1em] opacity-60 uppercase">{place.category}</p>

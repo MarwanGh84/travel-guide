@@ -13,6 +13,7 @@ import {
   Umbrella,
   Shirt,
   Loader2,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";

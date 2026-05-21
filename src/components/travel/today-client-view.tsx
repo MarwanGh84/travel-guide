@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { 
@@ -28,11 +26,12 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { PrimaryTrip } from "@/lib/db/travel";
 import type { WeatherSummary } from "@/lib/api/weatherService";
+import type { ItineraryDay, PlaceRecommendation } from "@/lib/types/travel";
 
 type TodayClientViewProps = {
   trip: PrimaryTrip;
-  days: any[];
-  places: any[];
+  days: ItineraryDay[];
+  places: PlaceRecommendation[];
   weather: WeatherSummary;
 };
 
@@ -73,11 +72,11 @@ export function TodayClientView({ trip, days, places, weather }: TodayClientView
     if (activeDay) {
       const hour = now.getHours();
       if (hour < 12) {
-        nextPlace = activeDay.places?.find((p: any) => !p.timeOfDay || p.timeOfDay.toLowerCase().includes("morning")) || activeDay.places?.[0];
+        nextPlace = activeDay.places?.find((p) => !p.timeOfDay || p.timeOfDay.toLowerCase().includes("morning")) || activeDay.places?.[0];
       } else if (hour < 17) {
-        nextPlace = activeDay.places?.find((p: any) => p.timeOfDay?.toLowerCase().includes("afternoon")) || activeDay.places?.find((p: any) => !p.timeOfDay) || activeDay.places?.[0];
+        nextPlace = activeDay.places?.find((p) => p.timeOfDay?.toLowerCase().includes("afternoon")) || activeDay.places?.find((p) => !p.timeOfDay) || activeDay.places?.[0];
       } else {
-        nextPlace = activeDay.places?.find((p: any) => p.timeOfDay?.toLowerCase().includes("evening")) || activeDay.places?.reverse().find((p: any) => !p.timeOfDay) || activeDay.places?.[activeDay.places.length - 1];
+        nextPlace = activeDay.places?.find((p) => p.timeOfDay?.toLowerCase().includes("evening")) || activeDay.places?.reverse().find((p) => !p.timeOfDay) || activeDay.places?.[activeDay.places.length - 1];
       }
     }
 

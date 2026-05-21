@@ -87,7 +87,7 @@ export async function searchLiveHotels(
         return {
           name: hotel.hotel_name || "Unnamed property",
           area: hotel.city || hotel.district || "Area unavailable",
-          rating: hotel.review_score,
+          rating: hotel.review_score ?? undefined,
           estimatedPricePerNight: nightlyPrice ?? fallbackTotalPrice,
           currency: hotel.composite_price_breakdown?.gross_amount_per_night?.currency ?? hotel.currency_code,
           availability: true,

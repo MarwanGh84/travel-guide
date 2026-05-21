@@ -940,7 +940,7 @@ function PlanNode({
     // Optimistic Update
     setDays((current) => current.map(day => ({
       ...day,
-      items: day.items?.filter(item => item.id !== id)
+      places: day.places?.filter(item => item.id !== id)
     })));
 
     const res = await deleteItineraryItem(id);
@@ -967,7 +967,7 @@ function PlanNode({
     // Optimistic Update
     setDays((current) => current.map(day => ({
       ...day,
-      items: day.items?.map(item => item.id === itemId ? { ...item, title: oldTitle } : item)
+      places: day.places?.map(item => item.id === itemId ? { ...item, title: oldTitle } : item)
     })));
 
     setEditingItemId(null);

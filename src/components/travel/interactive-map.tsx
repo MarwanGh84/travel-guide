@@ -408,8 +408,14 @@ function StaticMapFallback({
           style={{ left: `${left}%`, top: `${top}%` }}
         >
           {selectedPinId === pin.id && pin.photoUrl ? (
-            <div className="size-8 overflow-hidden rounded-full border border-white/20">
-               <img src={pin.photoUrl} alt="" className="h-full w-full object-cover" />
+            <div className="size-8 overflow-hidden rounded-full border border-white/20 relative">
+               <Image 
+                 src={pin.photoUrl} 
+                 alt={pin.label} 
+                 fill 
+                 className="object-cover" 
+                 unoptimized
+               />
             </div>
           ) : (
             <div className={cn("grid size-8 place-items-center rounded-full font-black text-[10px]", selectedPinId === pin.id ? "text-background" : "text-foreground")}>

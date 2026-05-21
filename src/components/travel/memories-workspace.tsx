@@ -381,8 +381,12 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
                   {/* Photo Section */}
                   {active.photosPlaceholder && (
                     <section className="relative aspect-video overflow-hidden rounded-2xl border border-border shadow-sm">
-                       {/* eslint-disable-next-line @next/next/no-img-element -- Intentional use of external journal placeholder image */}
-                       <img src={active.photosPlaceholder} alt="" className="h-full w-full object-cover" />
+                       <Image 
+                         src={active.photosPlaceholder} 
+                         alt={active.title} 
+                         fill 
+                         className="object-cover" 
+                       />
                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                     </section>
                   )}

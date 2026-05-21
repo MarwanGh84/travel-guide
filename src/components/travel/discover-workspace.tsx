@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useTransition, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
   RefreshCw, 
   Sparkles, 
@@ -50,8 +50,6 @@ import type { WeatherSummary } from "@/lib/api/weatherService";
 import type { LiveEvent } from "@/lib/api/eventsService";
 import { WeatherIcon } from "./weather-icon";
 
-const passthroughImageLoader = ({ src }: { src: string }) => src;
-
 type DiscoverWorkspaceProps = {
   trip: TripDraft | null;
   places: PlaceRecommendation[];
@@ -81,22 +79,41 @@ export function DiscoverWorkspace({
   weather
 }: DiscoverWorkspaceProps) {
   const router = useRouter();
-  const [activeCategoryId, setActiveCategoryId] = useState(intelligence ? "intel" : "all");
-  const [selectedPlaceId, setSelectedPlaceId] = useState("");
-  const [selectedDestinationId, setSelectedDestinationId] = useState(
-    destinations.find((destination) =>
-      destination.name === trip?.destination &&
-      (!trip?.destinationCountry || destination.country === trip.destinationCountry)
-    )?.id ?? ""
-  );
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const activeCategoryId = searchParams.get("category") || (intelligence ? "intel" : "all");
+  const selectedIdFromUrl = searchParams.get("id") || "";
+
+  const updateUrl = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null) {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [router, pathname, searchParams]);
+
   const [query, setQuery] = useState("");
-  const [showDetail, setShowDetail] = useState(false);
+  const [showDetail, setShowDetail] = useState(Boolean(selectedIdFromUrl));
   const [status, setStatus] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
   const [chooserOpen, setChooserOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [isFetchingEvents, setIsFetchingEvents] = useState(false);
-  const [selectedEventId, setSelectedEventId] = useState("");
+
+  // Computed IDs from URL
+  const selectedPlaceId = activeCategoryId !== "destinations" && activeCategoryId !== "events" ? selectedIdFromUrl : "";
+  const selectedDestinationId = activeCategoryId === "destinations" 
+    ? selectedIdFromUrl || (destinations.find((destination) =>
+        destination.name === trip?.destination &&
+        (!trip?.destinationCountry || destination.country === trip.destinationCountry)
+      )?.id ?? "")
+    : "";
+  const selectedEventId = activeCategoryId === "events" ? selectedIdFromUrl : "";
 
   useEffect(() => {
     if (activeCategoryId === "events" && liveEvents.length === 0 && trip?.destination) {
@@ -105,8 +122,8 @@ export function DiscoverWorkspace({
         const res = await fetchLiveEvents(`Events in ${trip.destination}`, "next_week");
         if (res.ok && res.data) {
           setLiveEvents(res.data);
-          if (res.data.length > 0) {
-            setSelectedEventId(res.data[0].id);
+          if (res.data.length > 0 && !selectedIdFromUrl) {
+            updateUrl({ id: res.data[0].id });
             setShowDetail(true);
           }
         }
@@ -114,10 +131,10 @@ export function DiscoverWorkspace({
       };
       loadEvents();
     }
-  }, [activeCategoryId, liveEvents.length, trip?.destination]);
+  }, [activeCategoryId, liveEvents.length, trip?.destination, selectedIdFromUrl, updateUrl]);
 
   const handleSelectEvent = (id: string) => {
-    setSelectedEventId(id);
+    updateUrl({ id });
     setShowDetail(true);
   };
 
@@ -179,12 +196,12 @@ export function DiscoverWorkspace({
   );
 
   const handleSelectPlace = (id: string) => {
-    setSelectedPlaceId(id);
+    updateUrl({ id });
     setShowDetail(true);
   };
 
   const handleSelectDest = (id: string) => {
-    setSelectedDestinationId(id);
+    updateUrl({ id });
     setShowDetail(true);
   };
 
@@ -207,7 +224,7 @@ export function DiscoverWorkspace({
       try {
         await refreshDestinationsFromAi();
         router.refresh();
-        setActiveCategoryId("destinations");
+        updateUrl({ category: "destinations", id: null });
         setStatus({ tone: "success", message: "Destination ideas refreshed." });
       } catch {
         setStatus({ tone: "error", message: "Could not generate destination ideas. Try again." });
@@ -222,7 +239,7 @@ export function DiscoverWorkspace({
         await planDestination(formData);
         router.refresh();
         window.dispatchEvent(new Event("trip-status-refresh"));
-        setActiveCategoryId("intel");
+        updateUrl({ category: "intel", id: null });
         setStatus({ tone: "success", message: "Destination committed." });
       } catch {
         setStatus({ tone: "error", message: "Could not commit destination. Try again." });
@@ -286,7 +303,7 @@ export function DiscoverWorkspace({
            {categories.map((cat) => (
              <button
                 key={cat.id}
-                onClick={() => { setActiveCategoryId(cat.id); setShowDetail(false); }}
+                onClick={() => { updateUrl({ category: cat.id, id: null }); setShowDetail(false); }}
                 className={cn(
                   "flex items-center gap-3 shrink-0 rounded-md px-3 py-2 text-xs font-bold transition-all lg:w-full border-l-2 lg:py-2.5",
                   activeCategoryId === cat.id 
@@ -427,7 +444,12 @@ export function DiscoverWorkspace({
                    >
                       <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-muted relative">
                          {event.thumbnail ? (
-                           <img src={event.thumbnail} alt="" className="h-full w-full object-cover" />
+                           <Image 
+                             src={event.thumbnail} 
+                             alt={event.name} 
+                             fill 
+                             className="object-cover" 
+                           />
                          ) : (
                            <div className="grid h-full place-items-center opacity-20"><Calendar size={20} /></div>
                          )}
@@ -509,12 +531,12 @@ export function DiscoverWorkspace({
                            >
                               <div className="size-8 shrink-0 overflow-hidden rounded-md bg-muted grayscale-[0.5] group-hover:grayscale-0 transition-all">
                                  <Image 
-                                   loader={passthroughImageLoader}
                                    src={imageForPlace(place)} 
-                                   alt="" 
+                                   alt={place.name} 
                                    width={32} 
                                    height={32} 
                                    className="h-full w-full object-cover" 
+                                   unoptimized
                                  />
                               </div>
                               <div className="min-w-0 flex-1">
@@ -594,12 +616,12 @@ export function DiscoverWorkspace({
                         )}
                      >
                         <Image
-                          loader={passthroughImageLoader}
                           src={imageForPlace(place)}
-                          alt=""
+                          alt={place.name}
                           width={40}
                           height={40}
                           className="size-10 rounded-md object-cover grayscale-[0.5]"
+                          unoptimized
                         />
                         <div className="min-w-0 flex-1">
                            <div className="flex items-center justify-between gap-2">
@@ -777,8 +799,13 @@ export function DiscoverWorkspace({
                 </header>
 
                 {activeEvent.thumbnail && (
-                   <div className="aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-sm">
-                      <img src={activeEvent.thumbnail} alt="" className="h-full w-full object-cover" />
+                   <div className="aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-sm relative">
+                      <Image 
+                        src={activeEvent.thumbnail} 
+                        alt={activeEvent.name} 
+                        fill 
+                        className="object-cover" 
+                      />
                    </div>
                 )}
 
@@ -831,12 +858,12 @@ export function DiscoverWorkspace({
               >
                 <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-sm grayscale-[0.2]">
                   <Image
-                    loader={passthroughImageLoader}
                     src={imageForPlace(activePlace)}
-                    alt=""
+                    alt={activePlace.name}
                     fill
                     sizes="(max-width: 768px) 100vw, 672px"
                     className="object-cover"
+                    unoptimized
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                 </div>

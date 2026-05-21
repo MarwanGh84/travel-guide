@@ -1,15 +1,17 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import { Printer, MapPin, Calendar, Users, Info, Ticket, Plane, Hotel, Car, FileText, Phone, HardDrive, Coins, CloudSun, ExternalLink, AlertTriangle, Edit3, Utensils } from "lucide-react";
+import { Printer, MapPin, Calendar, Users, Info, Ticket, Plane, Hotel, Car, FileText, Phone, HardDrive, Coins, CloudSun, ExternalLink, AlertTriangle, Edit3, Utensils, ShieldAlert } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import type { PrimaryTrip } from "@/lib/db/travel";
+import type { WeatherSummary } from "@/lib/api/weatherService";
+import type { ExchangeRate } from "@/lib/api/currencyService";
+import type { DriveMemorySource } from "@prisma/client";
 
 type TripPackViewProps = {
-  trip: any; 
-  weather: any;
-  exchangeRate: any;
-  driveSources: any[];
+  trip: PrimaryTrip | null; 
+  weather: WeatherSummary | null;
+  exchangeRate: ExchangeRate | { base: string; quote: string; rate: number; source: { note: string } } | null;
+  driveSources: DriveMemorySource[];
 };
 
 export function TripPackView({ trip, weather, exchangeRate, driveSources }: TripPackViewProps) {
@@ -23,12 +25,12 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
   const tripDuration = Math.ceil((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   // Map link for all saved places
-  const allPlaces = trip.itineraryDays.flatMap((day: any) => 
-    day.items.map((item: any) => item.placeRecommendation).filter(Boolean)
+  const allPlaces = trip.itineraryDays.flatMap((day) => 
+    day.items.map((item) => item.placeRecommendation).filter((p): p is NonNullable<typeof p> => Boolean(p))
   );
-  const uniquePlaces = Array.from(new Map(allPlaces.map((p: any) => [p.id, p])).values());
+  const uniquePlaces = Array.from(new Map(allPlaces.map((p) => [p.id, p])).values());
   const googleMapsUrl = uniquePlaces.length > 0 
-    ? `https://www.google.com/maps/dir/${uniquePlaces.map((p: any) => p.latitude && p.longitude ? `${p.latitude},${p.longitude}` : encodeURIComponent(p.name)).join("/")}`
+    ? `https://www.google.com/maps/dir/${uniquePlaces.map((p) => p.latitude && p.longitude ? `${p.latitude},${p.longitude}` : encodeURIComponent(p.name)).join("/")}`
     : null;
 
   return (
@@ -151,7 +153,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
             </h3>
           </div>
           <div className="space-y-12">
-            {trip.itineraryDays.length > 0 ? trip.itineraryDays.map((day: any, idx: number) => (
+            {trip.itineraryDays.length > 0 ? trip.itineraryDays.map((day, idx) => (
               <div key={day.id} className="grid gap-6 border-l-2 border-border pl-8 relative">
                 <div className="absolute -left-[9px] top-0 size-4 rounded-full border-4 border-background bg-foreground" />
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
@@ -169,7 +171,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
                   <div className="mt-2 space-y-3">
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted">Scheduled Points</p>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {day.items.map((item: any) => (
+                      {day.items.map((item) => (
                         <div key={item.id} className="flex items-start gap-3 rounded-lg border border-border bg-surface-2 p-3">
                           <div className="grid size-6 shrink-0 place-items-center rounded bg-background border border-border">
                             {item.placeRecommendation ? <MapPin size={12} className="text-foreground" /> : <Edit3 size={12} className="text-muted" />}
@@ -209,7 +211,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
             <Ticket size={20} /> Reservations & Bookings
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            {trip.bookings.length > 0 ? trip.bookings.map((booking: any) => (
+            {trip.bookings.length > 0 ? trip.bookings.map((booking) => (
               <div key={booking.id} className="rounded-xl border border-border p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -260,7 +262,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
             <div className="space-y-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-muted">Intelligence Check</p>
               <div className="rounded-xl border border-border p-5 space-y-3">
-                {trip.bookingChecklist.length > 0 ? trip.bookingChecklist.map((item: any) => (
+                {trip.bookingChecklist.length > 0 ? trip.bookingChecklist.map((item) => (
                   <div key={item.id} className="flex items-center justify-between gap-4">
                     <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
                     <span className={cn(
@@ -278,7 +280,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
             <div className="space-y-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-muted">Stored Documents</p>
               <div className="space-y-3">
-                {trip.documentNotes.length > 0 ? trip.documentNotes.map((doc: any) => (
+                {trip.documentNotes.length > 0 ? trip.documentNotes.map((doc) => (
                   <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface-2">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <FileText size={14} className="text-muted shrink-0" />
@@ -318,7 +320,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
               </div>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
-              {uniquePlaces.map((place: any) => (
+              {uniquePlaces.map((place) => (
                 <div key={place.id} className="flex flex-col gap-1 border-b border-border pb-3">
                   <p className="text-[10px] font-black uppercase tracking-tight">{place.name}</p>
                   <p className="text-[9px] text-muted truncate">{place.location}</p>
@@ -338,54 +340,66 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
               <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
                 <CloudSun size={20} /> Weather Intel
               </h3>
-              <div className="rounded-xl border border-border p-6 bg-surface-2">
-                <p className="text-lg font-black uppercase tracking-tight">{weather.summary}</p>
-                <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] font-bold uppercase tracking-widest">
-                  <div>
-                    <p className="text-muted mb-1">Temperature</p>
-                    <p>{weather.temperatureRange}</p>
+              {weather ? (
+                <div className="rounded-xl border border-border p-6 bg-surface-2">
+                  <p className="text-lg font-black uppercase tracking-tight">{weather.summary}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] font-bold uppercase tracking-widest">
+                    <div>
+                      <p className="text-muted mb-1">Temperature</p>
+                      <p>{weather.temperatureRange}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted mb-1">Rain Risk</p>
+                      <p>{weather.rainRisk}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted mb-1">Rain Risk</p>
-                    <p>{weather.rainRisk}</p>
-                  </div>
+                  {weather.daily.length > 0 && (
+                    <div className="mt-6 space-y-2">
+                      {weather.daily.slice(0, 3).map((day) => (
+                        <div key={day.date} className="flex items-center justify-between border-t border-border pt-2">
+                          <span className="text-[10px] font-bold">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                          <span className="text-[10px] font-bold uppercase">{day.label}</span>
+                          <span className="text-[10px] font-mono text-muted">{day.minC}° / {day.maxC}°</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {weather.daily.length > 0 && (
-                  <div className="mt-6 space-y-2">
-                    {weather.daily.slice(0, 3).map((day: any) => (
-                      <div key={day.date} className="flex items-center justify-between border-t border-border pt-2">
-                        <span className="text-[10px] font-bold">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                        <span className="text-[10px] font-bold uppercase">{day.label}</span>
-                        <span className="text-[10px] font-mono text-muted">{day.minC}° / {day.maxC}°</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-border p-8 text-center opacity-40">
+                  <p className="text-[10px] font-black uppercase tracking-widest">Weather data unavailable</p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
                 <Coins size={20} /> Exchange Rates
               </h3>
-              <div className="rounded-xl border border-border p-6 bg-surface-2">
-                <p className="text-lg font-black uppercase tracking-tight">
-                  {exchangeRate.rate > 0 
-                    ? `1 ${exchangeRate.base} = ${exchangeRate.rate.toFixed(4)} ${exchangeRate.quote}`
-                    : "Live rates unavailable"}
-                </p>
-                <p className="mt-2 text-[9px] font-bold uppercase text-muted tracking-widest">{exchangeRate.source.note}</p>
-                <div className="mt-8 space-y-4">
-                   <div className="flex justify-between border-b border-border pb-2">
-                      <span className="text-[10px] font-bold uppercase">Base Currency</span>
-                      <span className="text-[10px] font-black">{exchangeRate.base}</span>
-                   </div>
-                   <div className="flex justify-between border-b border-border pb-2">
-                      <span className="text-[10px] font-bold uppercase">Destination</span>
-                      <span className="text-[10px] font-black">{exchangeRate.quote}</span>
-                   </div>
+              {exchangeRate ? (
+                <div className="rounded-xl border border-border p-6 bg-surface-2">
+                  <p className="text-lg font-black uppercase tracking-tight">
+                    {exchangeRate.rate > 0 
+                      ? `1 ${exchangeRate.base} = ${exchangeRate.rate.toFixed(4)} ${exchangeRate.quote}`
+                      : "Live rates unavailable"}
+                  </p>
+                  <p className="mt-2 text-[9px] font-bold uppercase text-muted tracking-widest">{exchangeRate.source.note}</p>
+                  <div className="mt-8 space-y-4">
+                    <div className="flex justify-between border-b border-border pb-2">
+                        <span className="text-[10px] font-bold uppercase">Base Currency</span>
+                        <span className="text-[10px] font-black">{exchangeRate.base}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-border pb-2">
+                        <span className="text-[10px] font-bold uppercase">Destination</span>
+                        <span className="text-[10px] font-black">{exchangeRate.quote}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-border p-8 text-center opacity-40">
+                  <p className="text-[10px] font-black uppercase tracking-widest">Rate data unavailable</p>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -414,7 +428,7 @@ export function TripPackView({ trip, weather, exchangeRate, driveSources }: Trip
             <HardDrive size={20} /> Cloud Access
           </h3>
           <div className="space-y-4">
-            {driveSources.length > 0 ? driveSources.map((source: any) => (
+            {driveSources.length > 0 ? driveSources.map((source) => (
               <div key={source.id} className="flex items-center justify-between p-4 rounded-xl border border-border bg-surface-2">
                 <div className="flex items-center gap-4">
                   <div className="grid size-10 place-items-center rounded-lg bg-background border border-border">
@@ -471,6 +485,4 @@ function getBookingIcon(type: string) {
   }
 }
 
-function ShieldAlert({ size, className }: { size: number, className?: string }) {
-  return <AlertTriangle size={size} className={className} />;
-}
+
