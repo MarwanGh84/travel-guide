@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/travel/app-shell";
 import { ThemeProvider } from "@/components/theme-provider";
+import { KeyboardShortcuts } from "@/components/travel/keyboard-shortcuts";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -47,6 +48,7 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
         >
+          <KeyboardShortcuts />
           <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>

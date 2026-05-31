@@ -5,7 +5,6 @@ import {
   Sparkles,
   Ticket,
   Clock,
-  ShieldCheck,
   Calendar,
   AlertTriangle,
   CheckCircle2,
@@ -53,7 +52,7 @@ export default async function TodayPage() {
   
   // Logic for "during" state
   const activeDay = days.find((day) => day.date === todayStr) ?? (state === "during" ? days[0] : null);
-  const nextBooking = trip.bookings.find(b => b.startAt && new Date(b.startAt).toISOString().slice(0, 10) === todayStr) || trip.bookings[0];
+  const nextBooking = trip.bookings.find(b => b.startAt && new Date(b.startAt).toISOString().slice(0, 10) === todayStr) ?? null;
   
   const spent = trip.expenses.reduce((sum, e) => sum + e.amount, 0);
   const budgetRemaining = trip.budget - spent;
@@ -69,7 +68,7 @@ export default async function TodayPage() {
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6 z-30">
           <div className="flex items-center gap-8">
              <div className="flex flex-col gap-1">
-                <span className="text-[9px] font-black tracking-widest text-muted uppercase">Deployment Standby</span>
+                <span className="text-[9px] font-black tracking-widest text-muted uppercase">Upcoming Trip</span>
                 <span className="text-xl font-bold tracking-tight">{daysUntil} Days Until Departure</span>
              </div>
           </div>
@@ -86,9 +85,9 @@ export default async function TodayPage() {
            <div className="mx-auto max-w-4xl space-y-12">
               <section className="grid gap-8 lg:grid-cols-2">
                  <div className="space-y-6">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Ready for Takeoff?</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Almost Time</span>
                     <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter leading-none">
-                       {trip.destination || "The Journey"} <br/> <span className="text-muted/40">is approaching</span>
+                       {trip.destination || "The Journey"} <br/> <span className="text-muted/40">is coming up</span>
                     </h1>
                     <p className="text-sm font-bold text-muted uppercase tracking-widest leading-relaxed">
                        {new Date(trip.startDate).toLocaleDateString("en-US", { month: 'long', day: 'numeric' })} — {new Date(trip.endDate).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -137,7 +136,7 @@ export default async function TodayPage() {
 
               <section className="rounded-xl border border-border bg-surface/30 p-8">
                  <h3 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <CheckSquare size={14} /> Planning Checklist
+                    <CheckSquare size={14} /> Pre-Departure Checklist
                  </h3>
                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {checklist.map(item => (
@@ -160,7 +159,7 @@ export default async function TodayPage() {
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6 z-30">
           <div className="flex items-center gap-8">
              <div className="flex flex-col gap-1">
-                <span className="text-[9px] font-black tracking-widest text-muted uppercase">Mission Summary</span>
+                <span className="text-[9px] font-black tracking-widest text-muted uppercase">Trip Recap</span>
                 <span className="text-xl font-bold tracking-tight">Trip Completed</span>
              </div>
           </div>
@@ -233,15 +232,12 @@ export default async function TodayPage() {
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6 z-30">
         <div className="flex items-center gap-8">
            <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-black tracking-widest text-muted uppercase">In Progress</span>
+              <span className="text-[9px] font-black tracking-widest text-muted uppercase">Today</span>
               <span className="text-xl font-bold tracking-tight">{formatDate(activeDay.date)}</span>
            </div>
            <div className="h-8 w-px bg-border/50 hidden sm:block" />
            <div className="hidden items-center gap-4 sm:flex">
-              <article className="flex items-center gap-3">
-                 <span className="text-[10px] font-black uppercase tracking-widest text-muted">Telemetry Synced</span>
-                 <div className="size-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-              </article>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{trip.destination}</span>
            </div>
         </div>
 
@@ -251,9 +247,11 @@ export default async function TodayPage() {
                  Full Timeline
               </button>
            </Link>
-           <button className="flex h-9 items-center gap-2 rounded-md bg-foreground px-4 text-[10px] font-bold uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-xl">
-              <Sparkles size={12} /> Logical Studio
-           </button>
+           <a href="#ai-studio">
+             <button className="flex h-9 items-center gap-2 rounded-md bg-foreground px-4 text-[10px] font-bold uppercase tracking-widest text-background hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-xl">
+               <Sparkles size={12} /> Ask AI
+             </button>
+           </a>
         </div>
       </header>
 
@@ -264,7 +262,7 @@ export default async function TodayPage() {
         <section className="flex-1 overflow-y-auto p-8 lg:p-12 xl:p-16 bg-background border-r border-border scrollbar-hide">
            <div className="max-w-3xl mx-auto space-y-12">
               <header>
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Daily Theme</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Today&apos;s Theme</span>
                  <h1 className="mt-4 text-4xl lg:text-6xl font-black tracking-tighter uppercase text-foreground leading-none">{activeDay.theme}</h1>
               </header>
 
@@ -289,7 +287,7 @@ export default async function TodayPage() {
                          <MapPin size={24} />
                       </div>
                       <div>
-                         <p className="text-[10px] font-black uppercase tracking-widest text-muted">Next Objective</p>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-muted">Up Next</p>
                          <h3 className="text-2xl font-black uppercase tracking-tight">{nextPlace.title}</h3>
                          {nextPlace.place?.location && <p className="text-xs font-bold text-muted uppercase tracking-widest">{nextPlace.place.location}</p>}
                       </div>
@@ -315,7 +313,7 @@ export default async function TodayPage() {
            {/* Dynamic Weather Widget */}
            <section>
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Live Telemetry</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Weather</h3>
                  <CloudSun size={12} className="text-muted" />
               </div>
               <div className="relative rounded-xl border border-border bg-gradient-to-br from-slate-900 to-black p-6 shadow-xl text-white overflow-hidden">
@@ -350,7 +348,7 @@ export default async function TodayPage() {
            {/* Budget Widget */}
            <section>
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Operational Budget</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Budget</h3>
                  <Wallet size={12} className="text-muted" />
               </div>
               <div className="rounded-xl border border-border bg-background p-5 shadow-sm space-y-4">
@@ -376,7 +374,7 @@ export default async function TodayPage() {
            {/* Logistics Widget */}
            <section>
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Today&apos;s Logistics</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Today&apos;s Bookings</h3>
                  <Ticket size={12} className="text-muted" />
               </div>
               {nextBooking ? (
@@ -395,10 +393,10 @@ export default async function TodayPage() {
               )}
            </section>
 
-           {/* Adjustment Control */}
-           <section>
+           {/* AI Adjustment */}
+           <section id="ai-studio" className="scroll-mt-4">
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Logical Studio</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Ask AI to Adjust</h3>
                  <Sparkles size={12} className="text-muted" />
               </div>
               <div className="rounded-xl border border-border bg-background overflow-hidden shadow-sm p-4">
@@ -406,10 +404,10 @@ export default async function TodayPage() {
               </div>
            </section>
 
-           {/* Backup Intel */}
+           {/* Backup Idea */}
            <section className="rounded-xl border border-border bg-surface-2 p-6">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-muted mb-4 flex items-center gap-2">
-                 <ShieldCheck size={12} /> Contingency Protocol
+                 <Sparkles size={12} /> Backup Idea
               </h3>
               <p className="text-xs font-bold text-muted-2 leading-relaxed uppercase tracking-tight italic">
                  “{indoorBackup}”
@@ -419,7 +417,7 @@ export default async function TodayPage() {
            {/* Nearby Intelligence */}
            <section className="pb-12">
               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Exploration Sync</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Nearby Places</h3>
                  <MapPin size={12} className="text-muted" />
               </div>
               <NearbyIdeasCard places={places} />
@@ -428,14 +426,13 @@ export default async function TodayPage() {
 
       </main>
 
-      {/* 3. Global Status Rail */}
+      {/* Status Bar */}
       <footer className="flex h-10 shrink-0 items-center justify-between border-t border-border bg-surface px-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted z-30">
          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-2"><ShieldCheck size={12} className="text-emerald-500" /> SECURE HANDOFF</span>
-            <span className="flex items-center gap-2 font-bold text-foreground uppercase tracking-wider">{trip.destination} SECTOR ACTIVE</span>
+            <span className="flex items-center gap-2 font-bold text-foreground">{trip.destination}</span>
          </div>
          <div className="hidden items-center gap-6 sm:flex">
-            <span>STATUS: {state.toUpperCase()} MISSION</span>
+            <span>Day {days.indexOf(activeDay) + 1} of {days.length}</span>
          </div>
       </footer>
     </div>

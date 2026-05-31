@@ -30,8 +30,8 @@ export function WeatherView({
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
       <header>
-         <span className="text-[10px] font-black uppercase tracking-widest text-muted">Meteorological Readiness</span>
-         <h2 className="mt-2 text-2xl font-black uppercase tracking-tighter text-foreground">Tactical Weather</h2>
+         <span className="text-[10px] font-black uppercase tracking-widest text-muted">Today&apos;s Forecast</span>
+         <h2 className="mt-2 text-2xl font-black uppercase tracking-tighter text-foreground">Weather Overview</h2>
       </header>
 
       <div className="space-y-10 animate-in fade-in slide-in-from-left-4 duration-500">
@@ -42,7 +42,7 @@ export function WeatherView({
                      <WeatherIcon code={todayWeather.weatherCode} size={20} />
                   </div>
                   <div>
-                     <p className="text-[9px] font-black uppercase tracking-widest text-muted">Current Sector</p>
+                     <p className="text-[9px] font-black uppercase tracking-widest text-muted">Conditions</p>
                      <p className="text-lg font-black uppercase tracking-tight text-foreground">{todayWeather.label}</p>
                   </div>
                </div>
@@ -59,21 +59,21 @@ export function WeatherView({
          </div>
 
          <section>
-            <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Readiness Assessment</h3>
+            <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Planning Tip</h3>
             <div className={cn(
               "rounded-xl border-2 p-5 shadow-sm",
               isGoodWeather ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" : "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-500"
             )}>
                <p className="text-[11px] font-black uppercase tracking-tight leading-relaxed">
                   {isGoodWeather 
-                    ? "Optimal conditions for outdoor deployment. Prioritizing parks, viewpoints, and open-air landmarks."
-                    : "Sub-optimal weather detected. Prioritizing indoor tactical points: museums, cafes, and shopping sectors."}
+                    ? "Great day to head outside. Showing parks, viewpoints, and open-air spots first."
+                    : "Weather looks uncertain. Highlighting indoor options like museums, cafes, and galleries."}
                </p>
             </div>
          </section>
 
          <section className="space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Recommended for Today</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Suggested Places for Today</h3>
             <div className="divide-y divide-border/50">
                {filteredPlaces.slice(0, 10).map((place) => (
                  <button
@@ -83,7 +83,7 @@ export function WeatherView({
                  >
                     <div className="size-8 shrink-0 overflow-hidden rounded-md bg-muted grayscale-[0.5] group-hover:grayscale-0 transition-all">
                        <Image 
-                         src={imageForPlace(place)} 
+                         src={imageForPlace(place, 64, 64)} 
                          alt={place.name} 
                          width={32} 
                          height={32} 

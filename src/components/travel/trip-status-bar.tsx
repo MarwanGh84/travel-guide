@@ -111,11 +111,11 @@ export function TripStatusBar() {
        {/* Continuous Marquee Wrapper */}
        <div className="flex w-fit">
           <motion.div
-            initial={{ x: "-50%" }}
-            animate={{ x: "0%" }}
+            initial={{ x: "0%" }}
+            animate={{ x: "-50%" }}
             transition={{
               repeat: Infinity,
-              duration: 40, // Slower, more premium pace
+              duration: 40,
               ease: "linear",
             }}
             className="flex shrink-0 items-center"

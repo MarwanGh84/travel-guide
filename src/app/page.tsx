@@ -70,7 +70,6 @@ export default async function Home() {
   const steps = [
     { label: "Brief", status: "done", href: "/trips" },
     { label: "Discover", status: hasSavedPlaces ? "done" : "current", href: "/discover" },
-    { label: "Saved Places", status: hasSavedPlaces ? "done" : (hasSavedPlaces ? "done" : "current"), href: "/discover" },
     { label: "Itinerary", status: isApproved ? "done" : (hasItinerary ? "done" : (hasSavedPlaces ? "current" : "pending")), href: "/itinerary" },
     { label: "Approved", status: isApproved ? "done" : (hasItinerary ? "current" : "pending"), href: "/itinerary" },
     { label: "Stays", status: hasStays ? "done" : (isApproved ? "current" : "pending"), href: "/stays" },
@@ -96,7 +95,7 @@ export default async function Home() {
         <div className="min-w-0">
            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted">
               <Activity size={10} className="text-foreground" />
-              Trip Intelligence Hub
+              Trip Dashboard
            </div>
            <h1 className="mt-2 text-3xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase leading-tight sm:leading-none truncate text-foreground">{trip.destination ?? trip.name}</h1>
            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-muted">
@@ -162,7 +161,7 @@ export default async function Home() {
              />
              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
              <div className="absolute bottom-6 left-6 lg:bottom-10 lg:left-10 text-white">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Live Environment Telemetry</p>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Current Weather</p>
                 <div className="mt-3 flex items-center gap-6">
                    <span className="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tighter">{weather.temperatureRange}</span>
                    <div className="text-[10px] sm:text-xs font-bold leading-tight uppercase tracking-widest">
@@ -231,7 +230,7 @@ export default async function Home() {
           {/* Budget Snapshot */}
           <section className="flex flex-col justify-between rounded-2xl border border-border bg-background p-6 shadow-sm lg:col-span-3 lg:row-span-2 lg:p-6">
              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted">Capital Utilization</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted">Budget Spent</span>
                 <div className="mt-4 flex items-baseline gap-2">
                    <span className="text-3xl font-black tracking-tight text-foreground">{formatCurrency(actual)}</span>
                    <span className="text-[10px] font-bold text-muted uppercase">Actual</span>
@@ -282,12 +281,14 @@ export default async function Home() {
         </div>
       </main>
 
-      {/* 3. Global Shortcuts Rail */}
-      <footer className="mt-6 flex shrink-0 flex-wrap items-center justify-center gap-x-12 gap-y-4 border-t border-border/50 pt-6 pb-2 lg:mt-8 lg:pb-0">
-         <Shortcut label="Timeline" keybind="G+I" href="/itinerary" />
-         <Shortcut label="Discovery" keybind="G+D" href="/discover" />
-         <Shortcut label="Financials" keybind="G+B" href="/budget" />
-         <Shortcut label="Documents" keybind="G+L" href="/documents" />
+      {/* Keyboard Shortcuts Rail */}
+      <footer className="mt-6 flex shrink-0 flex-wrap items-center justify-center gap-x-10 gap-y-4 border-t border-border/50 pt-6 pb-2 lg:mt-8 lg:pb-0">
+         <Shortcut label="Itinerary" keybind="G I" href="/itinerary" />
+         <Shortcut label="Discover" keybind="G D" href="/discover" />
+         <Shortcut label="Budget" keybind="G B" href="/budget" />
+         <Shortcut label="Documents" keybind="G L" href="/documents" />
+         <Shortcut label="Today" keybind="G T" href="/today" />
+         <Shortcut label="Map" keybind="G M" href="/map" />
       </footer>
     </div>
   );

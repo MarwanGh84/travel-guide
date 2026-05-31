@@ -46,7 +46,7 @@ export function PlaceList({
          <div className="relative flex-1 mr-4">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
             <input 
-              placeholder="Search coordinates..." 
+              placeholder="Filter places..." 
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
               className="h-7 w-full rounded-md border border-border bg-surface pl-8 pr-3 text-[11px] focus:border-foreground focus:ring-0"
@@ -100,7 +100,7 @@ export function PlaceList({
                 )}
              >
                 <Image
-                  src={imageForPlace(place)}
+                  src={imageForPlace(place, 80, 80)}
                   alt={place.name}
                   width={40}
                   height={40}

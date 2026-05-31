@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
   addPlaceToItinerary, 
@@ -16,6 +16,7 @@ import type { WeatherSummary } from "@/lib/api/weatherService";
 import type { LiveEvent } from "@/lib/api/eventsService";
 import { Info, Globe, CloudSun, Calendar, Compass, Sparkles, Bookmark, Star, Utensils, Church, Navigation } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { CategoryRail } from "./discover/category-rail";
 import { PlaceList } from "./discover/place-list";
 import { IntelView } from "./discover/intel-view";
@@ -59,15 +60,17 @@ export function DiscoverWorkspace({
   const selectedIdFromUrl = searchParams.get("id") || "";
 
   const updateUrl = useCallback((updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null) {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
+    startTransition(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null) {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      });
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }, [router, pathname, searchParams]);
 
   const [query, setQuery] = useState("");
@@ -128,38 +131,44 @@ export function DiscoverWorkspace({
   const todayWeather = weather?.daily[0];
   const isGoodWeather = todayWeather && todayWeather.rainChance < 25 && todayWeather.maxC > 10 && todayWeather.maxC < 32;
 
-  const filteredPlaces = places.filter((p) => {
-    const haystack = `${p.name} ${p.category} ${p.location}`.toLowerCase();
-    if (query && !haystack.includes(query.toLowerCase())) return false;
+  const filteredPlaces = useMemo(() => {
+    return places.filter((p) => {
+      const haystack = `${p.name} ${p.category} ${p.location}`.toLowerCase();
+      if (query && !haystack.includes(query.toLowerCase())) return false;
 
-    if (activeCategoryId === "weather") {
-       const isOutdoor = /park|garden|nature|viewpoint|beach|reserve|walking|hiking/i.test(`${p.category} ${p.name}`);
-       const isIndoor = /museum|gallery|mall|restaurant|cafe|indoor|cinema|shopping|theatre|church/i.test(`${p.category} ${p.name}`);
-       if (isGoodWeather) return isOutdoor || (!isIndoor && !isOutdoor); // Prefer outdoor on good days
-       return isIndoor || (!isIndoor && !isOutdoor); // Prefer indoor on bad days
-    }
+      if (activeCategoryId === "weather") {
+         const isOutdoor = /park|garden|nature|viewpoint|beach|reserve|walking|hiking/i.test(`${p.category} ${p.name}`);
+         const isIndoor = /museum|gallery|mall|restaurant|cafe|indoor|cinema|shopping|theatre|church/i.test(`${p.category} ${p.name}`);
+         if (isGoodWeather) return isOutdoor || (!isIndoor && !isOutdoor); // Prefer outdoor on good days
+         return isIndoor || (!isIndoor && !isOutdoor); // Prefer indoor on bad days
+      }
 
-    if (activeCategoryId === "all") return true;
-    if (activeCategoryId === "saved") return selectedIds.has(p.id);
-    if (activeCategoryId === "hidden") return p.isHiddenGem;
-    if (activeCategoryId === "food") return /restaurant|cafe|bar|food|dining|eat/i.test(`${p.category} ${p.name}`);
-    if (activeCategoryId === "culture") return /museum|temple|history|art|theatre|gallery|church|synagogue|mosque/i.test(`${p.category} ${p.name}`);
-    if (activeCategoryId === "nature") return /park|garden|nature|viewpoint|beach|reserve|hiking|outdoor/i.test(`${p.category} ${p.name}`);
-    if (activeCategoryId === "activities") return /do|activity|tour|experience|event|festival|market|show|zoo|aquarium|stadium/i.test(`${p.category} ${p.name}`);
-    return true;
-  });
+      if (activeCategoryId === "all") return true;
+      if (activeCategoryId === "saved") return selectedIds.has(p.id);
+      if (activeCategoryId === "hidden") return p.isHiddenGem;
+      if (activeCategoryId === "food") return /restaurant|cafe|bar|food|dining|eat/i.test(`${p.category} ${p.name}`);
+      if (activeCategoryId === "culture") return /museum|temple|history|art|theatre|gallery|church|synagogue|mosque/i.test(`${p.category} ${p.name}`);
+      if (activeCategoryId === "nature") return /park|garden|nature|viewpoint|beach|reserve|hiking|outdoor/i.test(`${p.category} ${p.name}`);
+      if (activeCategoryId === "activities") return /do|activity|tour|experience|event|festival|market|show|zoo|aquarium|stadium/i.test(`${p.category} ${p.name}`);
+      return true;
+    });
+  }, [places, query, activeCategoryId, selectedIds, isGoodWeather]);
 
-  const filteredDestinations = destinations.filter((destination) => {
-    if (!query) return true;
-    return `${destination.name} ${destination.country}`.toLowerCase().includes(query.toLowerCase());
-  });
+  const filteredDestinations = useMemo(() => {
+    return destinations.filter((destination) => {
+      if (!query) return true;
+      return `${destination.name} ${destination.country}`.toLowerCase().includes(query.toLowerCase());
+    });
+  }, [destinations, query]);
 
   const isDestMode = activeCategoryId === "destinations";
   const isIntelMode = activeCategoryId === "intel";
   const isWeatherMode = activeCategoryId === "weather";
-  const activePlace = places.find((p) => p.id === selectedPlaceId);
-  const activeDestination = destinations.find((d) => d.id === selectedDestinationId);
-  const activeEvent = liveEvents.find((e) => e.id === selectedEventId);
+  
+  const activePlace = useMemo(() => places.find((p) => p.id === selectedPlaceId), [places, selectedPlaceId]);
+  const activeDestination = useMemo(() => destinations.find((d) => d.id === selectedDestinationId), [destinations, selectedDestinationId]);
+  const activeEvent = useMemo(() => liveEvents.find((e) => e.id === selectedEventId), [liveEvents, selectedEventId]);
+
   const isSelected = activePlace ? selectedIds.has(activePlace.id) : false;
   const isCommittedDestination = Boolean(
     activeDestination &&
@@ -260,59 +269,69 @@ export function DiscoverWorkspace({
 
   return (
     <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
-      <CategoryRail
-        activeCategoryId={activeCategoryId}
-        categories={categories}
-        todayWeather={todayWeather ? {
-          label: todayWeather.label,
-          maxC: todayWeather.maxC,
-          weatherCode: todayWeather.weatherCode
-        } : undefined}
-        isPending={isPending}
-        onSelectCategory={(id) => { updateUrl({ category: id, id: null }); setShowDetail(false); }}
-        onRefreshPlaces={handleRefreshPlaces}
-        onRefreshAI={handleRefreshAI}
-      />
-
-      {isIntelMode ? (
-        <IntelView
-          trip={trip}
-          intelligence={intelligence}
+      <div className={cn("contents", showDetail && "hidden lg:contents")}>
+        <CategoryRail
+          activeCategoryId={activeCategoryId}
+          categories={categories}
+          todayWeather={todayWeather ? {
+            label: todayWeather.label,
+            maxC: todayWeather.maxC,
+            weatherCode: todayWeather.weatherCode
+          } : undefined}
           isPending={isPending}
-          onRefreshPlaces={handleRefreshPlaces}
-        />
-      ) : activeCategoryId === "events" ? (
-        <EventsView
-          isFetchingEvents={isFetchingEvents}
-          liveEvents={liveEvents}
-          selectedEventId={selectedEventId}
-          onSelectEvent={handleSelectEvent}
-        />
-      ) : isWeatherMode ? (
-        <WeatherView
-          todayWeather={todayWeather!}
-          isGoodWeather={Boolean(isGoodWeather)}
-          filteredPlaces={filteredPlaces}
-          onSelectPlace={handleSelectPlace}
-        />
-      ) : (
-        <PlaceList
-          isDestMode={isDestMode}
-          query={query}
-          onQueryChange={setQuery}
-          filteredDestinations={filteredDestinations}
-          filteredPlaces={filteredPlaces}
-          selectedDestinationId={selectedDestinationId}
-          selectedPlaceId={selectedPlaceId}
-          onSelectDest={handleSelectDest}
-          onSelectPlace={handleSelectPlace}
-          selectedIds={selectedIds}
-          hasNoDataYet={hasNoDataYet}
-          isPending={isPending}
+          onSelectCategory={(id) => { updateUrl({ category: id, id: null }); setShowDetail(false); }}
           onRefreshPlaces={handleRefreshPlaces}
           onRefreshAI={handleRefreshAI}
         />
-      )}
+
+        {isIntelMode ? (
+          <IntelView
+            trip={trip}
+            intelligence={intelligence}
+            isPending={isPending}
+            onRefreshPlaces={handleRefreshPlaces}
+          />
+        ) : activeCategoryId === "events" ? (
+          <EventsView
+            isFetchingEvents={isFetchingEvents}
+            liveEvents={liveEvents}
+            selectedEventId={selectedEventId}
+            onSelectEvent={handleSelectEvent}
+          />
+        ) : isWeatherMode ? (
+          todayWeather ? (
+            <WeatherView
+              todayWeather={todayWeather}
+              isGoodWeather={Boolean(isGoodWeather)}
+              filteredPlaces={filteredPlaces}
+              onSelectPlace={handleSelectPlace}
+            />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center p-12 text-center opacity-40">
+              <CloudSun size={40} strokeWidth={1} className="mb-4 text-muted" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted">Weather data unavailable</p>
+              <p className="mt-2 text-xs text-muted">No destination set for this trip yet.</p>
+            </div>
+          )
+        ) : (
+          <PlaceList
+            isDestMode={isDestMode}
+            query={query}
+            onQueryChange={setQuery}
+            filteredDestinations={filteredDestinations}
+            filteredPlaces={filteredPlaces}
+            selectedDestinationId={selectedDestinationId}
+            selectedPlaceId={selectedPlaceId}
+            onSelectDest={handleSelectDest}
+            onSelectPlace={handleSelectPlace}
+            selectedIds={selectedIds}
+            hasNoDataYet={hasNoDataYet}
+            isPending={isPending}
+            onRefreshPlaces={handleRefreshPlaces}
+            onRefreshAI={handleRefreshAI}
+          />
+        )}
+      </div>
 
       <DetailPane
         showDetail={showDetail}

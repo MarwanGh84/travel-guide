@@ -52,8 +52,8 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
       <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface p-4 sm:p-6 lg:w-[350px] lg:border-b-0 lg:border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 overflow-y-auto lg:overflow-hidden lg:h-full">
         <div className="flex flex-col gap-6 sm:gap-8 pr-1 lg:h-full lg:overflow-y-auto scrollbar-hide">
           <section>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Tactical Plan</span>
-            <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-foreground uppercase">Stay Strategy</h1>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Where to Stay</span>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-foreground uppercase">Accommodation Plan</h1>
             <p className="mt-4 text-[11px] font-bold leading-relaxed text-muted-foreground uppercase tracking-wide">
               {strategy}
             </p>
@@ -93,7 +93,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
           <section className="mt-auto hidden lg:block rounded-xl bg-foreground p-5 text-background shadow-2xl">
              <ShieldCheck size={20} className="text-emerald-500 dark:text-emerald-400 opacity-80 mb-4" />
              <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed opacity-80">
-                These zones were calculated by clustering your approved itinerary POIs to reduce travel overhead.
+                Zones are calculated by grouping your itinerary stops together — staying here minimises daily travel time.
              </p>
           </section>
         </div>
@@ -117,7 +117,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                         {activeZone.budgetFit} Range
                      </span>
                      <span className="rounded-full bg-surface-2 px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-border text-muted-foreground whitespace-nowrap">
-                       {activeZone.destination} Sector
+                       {activeZone.destination}
                      </span>
                   </div>
                   <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tighter text-foreground leading-[0.95]">{activeZone.areaName}</h2>
@@ -136,10 +136,10 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                {/* Hotel Inventory Grid */}
                <section className="mb-24">
                   <div className="flex items-center justify-between mb-10">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Live Accommodation Hub</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Hotels</h3>
                     <div className="flex items-center gap-2">
                        <div className={cn("size-2 rounded-full", activeZone.hotelInventoryStatus === "live" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-muted-foreground/30")} />
-                       <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{activeZone.hotelInventoryStatus === "live" ? "System online" : "System standby"}</span>
+                       <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{activeZone.hotelInventoryStatus === "live" ? "Live results" : "Search links only"}</span>
                     </div>
                   </div>
 
@@ -147,10 +147,10 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                     <div className="mb-12 rounded-2xl border-2 border-border bg-surface p-8 shadow-sm">
                       <div className="flex items-center gap-3 mb-4 text-muted-foreground">
                         <Info size={18} />
-                        <span className="text-[11px] font-black uppercase tracking-widest">Inventory Protocol Note</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest">No Live Hotel Results</span>
                       </div>
                       <p className="text-sm font-medium leading-relaxed text-muted-foreground">
-                        {activeZone.hotelInventoryMessage || "Live hotel inventory is currently unavailable for this specific sector or timeframe. We recommend using the search suggestions below to view real-time availability on major platforms."}
+                        {activeZone.hotelInventoryMessage || "Live hotel inventory requires a RapidAPI key (RAPIDAPI_KEY). Without it, use the search links below to browse Booking.com directly — they're pre-filled with your destination and zone. You can paste your confirmation into the Imports page once booked."}
                       </p>
                     </div>
                   )}
@@ -224,7 +224,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                <div className="space-y-20 border-t border-border pt-20">
                   <div className="grid gap-16 lg:grid-cols-2">
                      <section>
-                        <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Sector Advantages</h3>
+                        <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Why Stay Here</h3>
                         <div className="space-y-4">
                            {activeZone.pros.map((pro, i) => (
                              <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-surface border-2 border-border shadow-sm transition-all hover:border-foreground duration-300">
@@ -235,9 +235,9 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                         </div>
                      </section>
                      <section>
-                        <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Itinerary Clusters</h3>
+                        <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Nearby Itinerary Stops</h3>
                         <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                          {activeZone.nearbyPlaces.length} mapped itinerary places in this zone
+                          {activeZone.nearbyPlaces.length} itinerary places near this area
                         </p>
                         <div className="flex flex-wrap gap-2">
                            {activeZone.nearbyPlaces.map((place, i) => (
@@ -248,7 +248,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                   </div>
 
                   <section className="pb-20">
-                     <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Search Intelligence</h3>
+                     <h3 className="mb-8 text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Search on Booking Platforms</h3>
                      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
                         {searchSuggestions.filter(s => s.area === activeZone.areaName || s.area === destination).map((suggestion, i) => (
                           <button 
@@ -262,7 +262,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
                                 </div>
                                 <div>
                                   <span className="block text-xs font-black uppercase tracking-widest text-foreground">{suggestion.label}</span>
-                                  <span className="mt-1 block text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">External Provider Search</span>
+                                  <span className="mt-1 block text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">Opens Booking.com</span>
                                 </div>
                              </div>
                              <ChevronRight size={18} className="text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-1 transition-all" />
