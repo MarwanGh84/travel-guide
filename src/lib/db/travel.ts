@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { defaultTravelProfile, defaultUser } from "@/lib/data/defaults";
@@ -33,7 +34,7 @@ export function toDestinationIntel(trip: PrimaryTrip) {
   };
 }
 
-export async function getOrCreateUser() {
+export const getOrCreateUser = cache(async () => {
   const user = await prisma.user.upsert({
     where: { email: defaultUser.email },
     update: { name: defaultUser.name },
@@ -47,9 +48,9 @@ export async function getOrCreateUser() {
   });
 
   return user;
-}
+});
 
-export async function getPrimaryTrip(): Promise<PrimaryTrip | null> {
+export const getPrimaryTrip = cache(async (): Promise<PrimaryTrip | null> => {
   const user = await getOrCreateUser();
   const activeTrip = user.activeTripId
     ? await prisma.trip.findFirst({
@@ -83,7 +84,45 @@ export async function getPrimaryTrip(): Promise<PrimaryTrip | null> {
     memories: [...trip.memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
   };
 
-}
+});
+
+const tripStatusSelect = Prisma.validator<Prisma.TripSelect>()({
+  id: true,
+  name: true,
+  destination: true,
+  destinationCountry: true,
+  startDate: true,
+  endDate: true,
+  travelerCount: true,
+  budget: true,
+  pace: true,
+  travelStyle: true,
+  interests: true,
+  notes: true,
+  status: true,
+  currency: true,
+  _count: { select: { savedPlaces: true, bookings: true, itineraryDays: true } },
+});
+
+export type TripStatusSummary = Prisma.TripGetPayload<{ select: typeof tripStatusSelect }>;
+
+// Lightweight active-trip lookup for the persistent status bar. Avoids the heavy
+// relation graph that getPrimaryTrip eager-loads on every navigation.
+export const getTripStatusSummary = cache(async (): Promise<TripStatusSummary | null> => {
+  const user = await getOrCreateUser();
+  const activeTrip = user.activeTripId
+    ? await prisma.trip.findFirst({
+        where: { id: user.activeTripId, userId: user.id },
+        select: tripStatusSelect,
+      })
+    : null;
+  if (activeTrip) return activeTrip;
+  return prisma.trip.findFirst({
+    where: { userId: user.id },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    select: tripStatusSelect,
+  });
+});
 
 export async function getUserTrips() {
   const user = await getOrCreateUser();

@@ -3,8 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime uses the Neon pooled endpoint (the "-pooler" host) so serverless
+  // functions reuse connections instead of opening a fresh one per cold start.
+  url       = env("DATABASE_URL")
+  // Migrations / introspection need a direct (unpooled) connection.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {

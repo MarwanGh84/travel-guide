@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateTripSummary } from "@/lib/ai/openai";
-import { getPrimaryTrip } from "@/lib/db/travel";
+import { getTripStatusSummary } from "@/lib/db/travel";
+import { prisma } from "@/lib/db/prisma";
 import { getWeatherSummary } from "@/lib/api/weatherService";
 import { tripLength } from "@/lib/utils";
 
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const ai = searchParams.get("ai") === "true";
     
-    const dbTrip = await getPrimaryTrip();
+    const dbTrip = await getTripStatusSummary();
     if (!dbTrip) {
       return NextResponse.json({ ok: false, message: "No active trip." }, { status: 404 });
     }
@@ -32,9 +33,9 @@ export async function GET(request: Request) {
       notes: dbTrip.notes,
       status: dbTrip.status,
       currency: dbTrip.currency,
-      savedPlacesCount: dbTrip.savedPlaces.length,
-      bookingCount: dbTrip.bookings.length,
-      itineraryStatus: dbTrip.itineraryDays.length > 0 ? "Generated" : "Not generated",
+      savedPlacesCount: dbTrip._count.savedPlaces,
+      bookingCount: dbTrip._count.bookings,
+      itineraryStatus: dbTrip._count.itineraryDays > 0 ? "Generated" : "Not generated",
       weather: weather.daily.length > 0 ? {
         temp: `${weather.daily[0].maxC}°`,
         label: weather.daily[0].label
@@ -43,7 +44,11 @@ export async function GET(request: Request) {
 
     let aiData = null;
     if (ai) {
-      const notes = dbTrip.memories.map(m => m.notes).filter(Boolean).join("\n") || "No notes yet.";
+      const memories = await prisma.memory.findMany({
+        where: { tripId: dbTrip.id },
+        select: { notes: true },
+      });
+      const notes = memories.map((memory) => memory.notes).filter(Boolean).join("\n") || "No notes yet.";
       const result = await generateTripSummary(notes);
       aiData = result.data;
     }

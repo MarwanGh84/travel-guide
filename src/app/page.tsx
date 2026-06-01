@@ -155,9 +155,9 @@ export default async function Home() {
                src={imageForDestination(trip.destination, trip.destinationCountry, 1200, 800)} 
                alt={trip.destination || "Destination"} 
                fill 
+               sizes="(max-width: 1024px) 100vw, 60vw"
                className="object-cover grayscale-[0.2] brightness-[0.8]" 
                priority
-               unoptimized
              />
              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
              <div className="absolute bottom-6 left-6 lg:bottom-10 lg:left-10 text-white">

@@ -101,10 +101,11 @@ export async function createTrip(formData: FormData) {
 
   const preferences = await getTravelPreferences();
 
-  // Kick off place discovery in the background, but persist destination ideas
-  // before redirecting so the Discover "Ideas" tab is populated on first load.
+  // Kick off place + destination discovery in the background so the redirect to
+  // Discover is instant instead of blocking on OpenAI. The Discover view polls
+  // briefly to pick up both as they land.
   void refreshPlacesFromProvider();
-  await generateAndSaveDestinations(trip.id, tripDraft, preferences);
+  void generateAndSaveDestinations(trip.id, tripDraft, preferences);
 
   revalidateAll();
   redirect("/discover");

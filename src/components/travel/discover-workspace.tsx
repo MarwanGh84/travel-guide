@@ -302,16 +302,21 @@ export function DiscoverWorkspace({
   };
 
   // After creating a trip we kick off place discovery in the background, so the
-  // first Discover render can land before places are written. Poll a few times to
-  // pick them up instead of leaving the user staring at an empty list.
-  const placesWarmingUp = Boolean(trip?.destination) && places.length === 0 && autoRefreshCount < 5;
+  // first Discover render can land before places are written. Poll a couple of
+  // times to pick them up instead of leaving the user staring at an empty list.
+  // Each refresh re-runs the heavy server render, so keep attempts low and stop
+  // the moment any places arrive (places.length flips this to false).
+  const placesWarmingUp =
+    Boolean(trip?.destination) &&
+    (places.length === 0 || destinations.length === 0) &&
+    autoRefreshCount < 2;
 
   useEffect(() => {
     if (!placesWarmingUp) return;
     const timer = setTimeout(() => {
       router.refresh();
       setAutoRefreshCount((count) => count + 1);
-    }, 4000);
+    }, 8000);
     return () => clearTimeout(timer);
   }, [placesWarmingUp, router]);
 
