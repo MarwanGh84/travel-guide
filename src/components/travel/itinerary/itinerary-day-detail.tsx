@@ -8,9 +8,8 @@ import {
   AlertTriangle, 
   Loader2, 
   MapPin, 
-  ChevronRight, 
+  ChevronRight,
   Navigation,
-  type LucideIcon 
 } from "lucide-react";
 import { WeatherIcon } from "../weather-icon";
 import type { ItineraryDay, PlaceRecommendation } from "@/lib/types/travel";

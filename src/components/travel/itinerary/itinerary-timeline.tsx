@@ -4,7 +4,6 @@ import { type MouseEventHandler } from "react";
 import {
   Trash2,
   ShieldCheck,
-  Loader2,
   CalendarDays,
   Download,
   Printer,

@@ -2,10 +2,8 @@
 
 import { 
   MapPin, 
-  ExternalLink, 
   Navigation, 
   X, 
-  Star 
 } from "lucide-react";
 import Link from "next/link";
 import { buildPlaceMapsUrl } from "./itinerary-utils";

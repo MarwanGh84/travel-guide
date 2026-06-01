@@ -391,7 +391,8 @@ function getScheduledPlaces(
   placesById: Map<string, PlaceRecommendation>,
   placesByNormalizedName: Map<string, PlaceRecommendation>,
 ) {
-  const empty = { morning: [] as any[], afternoon: [] as any[], evening: [] as any[] };
+  type ScheduledPoint = { id: string; title: string; linkedPlace: PlaceRecommendation | undefined };
+  const empty: { morning: ScheduledPoint[]; afternoon: ScheduledPoint[]; evening: ScheduledPoint[] } = { morning: [], afternoon: [], evening: [] };
   if (!day?.places?.length) return empty;
 
   return day.places.reduce((accumulator, point, index) => {

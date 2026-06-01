@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Search, Loader2, RefreshCw, Compass, MapPin } from "lucide-react";
+import { Search, Loader2, RefreshCw, Compass } from "lucide-react";
 import Image from "next/image";
 import { imageForPlace } from "@/lib/travel/media";
 import type { PlaceRecommendation, DestinationRecommendation } from "@/lib/types/travel";

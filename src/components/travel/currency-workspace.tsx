@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRightLeft, Info, TrendingUp, Landmark, CreditCard, Coins, Zap } from "lucide-react";
+import { ArrowRightLeft, TrendingUp, Landmark, CreditCard, Coins, Zap } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -58,7 +58,6 @@ export function CurrencyWorkspace({ baseCurrency: defaultBase, targetCurrency, i
 
   const dailySpend = tripDuration > 0 ? tripBudget / tripDuration : 0;
   const hasLiveRate = Boolean(rate && !rate.source.isMock && rate.rate > 0);
-  const convertedBudget = hasLiveRate ? tripBudget * rate!.rate : null;
   const convertedDaily = hasLiveRate ? dailySpend * rate!.rate : null;
 
   const handleBaseChange = (value: string) => {

@@ -24,7 +24,6 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  Zap,
   Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";

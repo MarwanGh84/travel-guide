@@ -1,5 +1,5 @@
 import type { DataSource } from "@/lib/types/travel";
-import { ForecastResponseSchema, GeocodeResponseSchema } from "@/lib/validation/schemas";
+import { GeocodeResponseSchema } from "@/lib/validation/schemas";
 
 export type WeatherSummary = {
   destination: string;

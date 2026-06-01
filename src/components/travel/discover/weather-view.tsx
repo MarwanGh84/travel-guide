@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { CloudSun, CloudRain, Wind, ChevronRight } from "lucide-react";
+import { CloudRain, Wind, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { imageForPlace } from "@/lib/travel/media";
 import { WeatherIcon } from "../weather-icon";

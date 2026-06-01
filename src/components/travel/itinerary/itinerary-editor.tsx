@@ -15,7 +15,6 @@ import {
   type LucideIcon 
 } from "lucide-react";
 import { Textarea } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import type { ItineraryDay } from "@/lib/types/travel";
 
 type ItineraryEditorProps = {

@@ -61,6 +61,8 @@ export function DiscoverWorkspace({
   const activeCategoryId = searchParams.get("category") || (intelligence ? "intel" : "all");
   const selectedIdFromUrl = searchParams.get("id") || "";
 
+  const [isPending, startTransition] = useTransition();
+
   const updateUrl = useCallback((updates: Record<string, string | null>) => {
     startTransition(() => {
       const params = new URLSearchParams(searchParams.toString());
@@ -73,13 +75,12 @@ export function DiscoverWorkspace({
       });
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
-  }, [router, pathname, searchParams]);
+  }, [router, pathname, searchParams, startTransition]);
 
   const [query, setQuery] = useState("");
   const [showDetail, setShowDetail] = useState(Boolean(selectedIdFromUrl));
   const [status, setStatus] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
   const [chooserOpen, setChooserOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [isFetchingEvents, setIsFetchingEvents] = useState(false);
   const [priceFilter, setPriceFilter] = useState<string | null>(null);
