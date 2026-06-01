@@ -21,6 +21,7 @@ type GmailStatus = {
   email?: string | null;
   configured: boolean;
   message: string;
+  connectUrl?: string;
 };
 
 export function ImportWorkspace() {
@@ -114,8 +115,34 @@ export function ImportWorkspace() {
                 <div className="space-y-4">
                    <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest text-muted">Gmail Scan</span>
-                      {status?.connected ? <span className="text-[9px] font-bold text-emerald-600">CONNECTED</span> : <span className="text-[9px] font-bold text-muted">STANDBY</span>}
+                      {status?.connected
+                        ? <span className="text-[9px] font-bold text-emerald-600">CONNECTED{status.email ? ` · ${status.email}` : ""}</span>
+                        : <span className="text-[9px] font-bold text-muted">NOT CONNECTED</span>}
                    </div>
+
+                   {/* Connect / disconnect */}
+                   {status && !status.connected && status.connectUrl && (
+                     <a
+                       href={status.connectUrl}
+                       className="flex h-8 w-full items-center justify-center gap-2 rounded-md border border-border bg-background text-[10px] font-bold uppercase tracking-widest text-foreground hover:bg-surface transition-colors"
+                     >
+                       <Mail size={12} /> Connect Gmail
+                     </a>
+                   )}
+                   {status && !status.connected && !status.connectUrl && (
+                     <p className="rounded-lg border border-border bg-surface p-3 text-[10px] leading-5 text-muted">
+                       {status.message}
+                     </p>
+                   )}
+                   {status?.connected && (
+                     <a
+                       href="/api/gmail/disconnect"
+                       className="block text-center text-[9px] font-bold uppercase tracking-widest text-muted hover:text-foreground transition-colors"
+                     >
+                       Disconnect Gmail
+                     </a>
+                   )}
+
                    <Input 
                       value={gmailQuery} 
                       onChange={(e) => setGmailQuery(e.target.value)}
