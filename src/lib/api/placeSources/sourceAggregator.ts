@@ -2,6 +2,7 @@ import { NormalizedPlace, DestinationIntelligence } from "@/lib/types/sources";
 import { searchGooglePlaces } from "./googlePlacesSource";
 import { searchOSMPlaces } from "./osmSource";
 import { getWikivoyageIntelligence, getWikivoyagePOIs } from "./wikivoyageSource";
+import { searchFoursquarePlaces } from "./foursquareSource";
 import { TripDraft } from "@/lib/types/travel";
 
 export async function aggregateIntelligence(trip: TripDraft): Promise<{
@@ -11,11 +12,12 @@ export async function aggregateIntelligence(trip: TripDraft): Promise<{
   const destination = trip.destination || trip.destinationCountry || "Unknown Destination";
   const country = trip.destinationCountry || "";
 
-  const [googleResults, osmResults, wikiIntelligence, wikiPOIs] = await Promise.allSettled([
+  const [googleResults, osmResults, wikiIntelligence, wikiPOIs, foursquareResults] = await Promise.allSettled([
     searchGooglePlaces(`${trip.interests.join(", ")} attractions in ${destination}`),
     searchOSMPlaces(destination),
     getWikivoyageIntelligence(destination, country),
-    getWikivoyagePOIs(destination, country)
+    getWikivoyagePOIs(destination, country),
+    searchFoursquarePlaces(destination, trip.interests),
   ]);
 
   const allPlaces: NormalizedPlace[] = [];
@@ -29,6 +31,12 @@ export async function aggregateIntelligence(trip: TripDraft): Promise<{
     const googleNames = new Set(allPlaces.map(p => p.name.toLowerCase()));
     const uniqueOSM = osmResults.value.filter(p => !googleNames.has(p.name.toLowerCase()));
     allPlaces.push(...uniqueOSM);
+  }
+
+  if (foursquareResults.status === "fulfilled") {
+    const existingNames = new Set(allPlaces.map(p => p.name.toLowerCase()));
+    const uniqueFoursquare = foursquareResults.value.filter(p => !existingNames.has(p.name.toLowerCase()));
+    allPlaces.push(...uniqueFoursquare);
   }
 
   if (wikiPOIs.status === "fulfilled") {

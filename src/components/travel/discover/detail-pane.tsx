@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
   ChevronLeft, 
@@ -149,19 +150,22 @@ export function DetailPane({
 
                  {activeDestination.source.classification === "ai" && (
                    <section className="rounded-2xl border-2 border-border bg-surface p-8 shadow-inner">
-                     <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Planning Assumptions</h3>
+                     <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Rough Estimates</h3>
+                     <p className="mb-6 text-[10px] italic leading-relaxed text-muted/70 normal-case tracking-normal">
+                       AI-generated ballpark figures — always confirm live prices and weather before booking.
+                     </p>
                      <div className="space-y-4 text-[10px] font-black uppercase tracking-widest text-muted-2">
                        <div className="flex items-center gap-3 pb-3 border-b border-border/50">
                           <CloudSun size={14} className="text-foreground" />
-                          <span>Weather: {activeDestination.weatherSummary}</span>
+                          <span>Weather: ~{activeDestination.weatherSummary}</span>
                        </div>
                        <div className="flex items-center gap-3 pb-3 border-b border-border/50">
                           <Plane size={14} className="text-foreground" />
-                          <span>Flight: {activeDestination.flightEstimate}</span>
+                          <span>Flight: ~{activeDestination.flightEstimate}</span>
                        </div>
                        <div className="flex items-center gap-3">
                           <Bed size={14} className="text-foreground" />
-                          <span>Hotel: {activeDestination.hotelEstimate}</span>
+                          <span>Hotel: ~{activeDestination.hotelEstimate}</span>
                        </div>
                      </div>
                    </section>
@@ -378,6 +382,8 @@ export function DetailPane({
                           {activePlace.description || "Curated intelligence for this sector. High alignment with trip profile."}
                        </p>
                     </section>
+
+                    <PlaceReviews name={activePlace.name} location={activePlace.location} />
                     
                     <section className="rounded-xl bg-surface p-8 border border-border shadow-inner">
                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6">Discovery Source</h3>
@@ -429,6 +435,98 @@ function MetaItem({ label, value }: { label: string; value: string }) {
        <span className="text-[9px] font-medium text-muted uppercase tracking-widest">{label}</span>
        <span className="text-[10px] font-black text-foreground uppercase">{value}</span>
     </div>
+  );
+}
+
+type PlaceReviewItem = { author?: string; rating?: number; text: string; relativeTime?: string };
+type ReviewsData = {
+  ok: boolean;
+  note: string;
+  rating?: number;
+  totalRatings?: number;
+  reviews: PlaceReviewItem[];
+};
+
+function PlaceReviews({ name, location }: { name: string; location: string }) {
+  const [data, setData] = useState<ReviewsData | null>(null);
+  const [loadedKey, setLoadedKey] = useState("");
+  const key = `${name}|${location}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ name });
+    if (location) params.set("location", location);
+    fetch(`/api/places/reviews?${params.toString()}`)
+      .then((res) => res.json())
+      .then((result) => {
+        if (cancelled) return;
+        setData({
+          ok: Boolean(result.ok),
+          note: result.note ?? "",
+          rating: result.rating,
+          totalRatings: result.totalRatings,
+          reviews: Array.isArray(result.reviews) ? result.reviews : [],
+        });
+        setLoadedKey(key);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setData({ ok: false, note: "Could not load reviews.", reviews: [] });
+        setLoadedKey(key);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, name, location]);
+
+  const loading = loadedKey !== key;
+  const state = data ?? { ok: false, note: "", reviews: [] };
+
+  if (loading) {
+    return (
+      <section>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6">Traveler Reviews</h3>
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted">
+          <Loader2 size={12} className="animate-spin" /> Loading reviews
+        </div>
+      </section>
+    );
+  }
+
+  if (!state.ok || state.reviews.length === 0) return null;
+
+  return (
+    <section>
+      <div className="mb-6 flex items-center justify-between">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Traveler Reviews</h3>
+        {typeof state.rating === "number" && (
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-foreground">
+            <Star size={12} className="fill-amber-400 text-amber-400" />
+            {state.rating.toFixed(1)}
+            {state.totalRatings ? <span className="text-muted">({state.totalRatings.toLocaleString()})</span> : null}
+          </span>
+        )}
+      </div>
+      <div className="space-y-4">
+        {state.reviews.map((review, index) => (
+          <article key={index} className="rounded-xl border border-border bg-surface p-5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-black uppercase tracking-wide text-foreground">{review.author ?? "Google reviewer"}</span>
+              {typeof review.rating === "number" && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-500">
+                  <Star size={10} className="fill-amber-400 text-amber-400" /> {review.rating}
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-foreground/80 line-clamp-5">{review.text}</p>
+            {review.relativeTime && (
+              <span className="mt-2 block text-[9px] font-bold uppercase tracking-widest text-muted">{review.relativeTime}</span>
+            )}
+          </article>
+        ))}
+      </div>
+      <p className="mt-3 text-[9px] font-bold uppercase tracking-widest text-muted/60">Source: Google</p>
+    </section>
   );
 }
 

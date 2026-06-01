@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { defaultTravelProfile, defaultUser } from "@/lib/data/defaults";
-import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
+import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TravelPreferences, TripDraft } from "@/lib/types/travel";
 import { normalizeName, tripLength } from "@/lib/utils";
 
 const primaryTripInclude = Prisma.validator<Prisma.TripInclude>()({
@@ -105,6 +105,20 @@ export async function getUserTrips() {
 export async function getTravelProfile() {
   const user = await getOrCreateUser();
   return prisma.travelProfile.findUnique({ where: { userId: user.id } });
+}
+
+export async function getTravelPreferences(): Promise<TravelPreferences | null> {
+  const profile = await getTravelProfile();
+  if (!profile) return null;
+  return {
+    foodPreferences: profile.foodPreferences || undefined,
+    favoriteActivities: profile.favoriteActivities || undefined,
+    thingsToAvoid: profile.thingsToAvoid || undefined,
+    hiddenGemInterest: profile.hiddenGemInterest,
+    preferredHotelType: profile.preferredHotelType || undefined,
+    budgetStyle: profile.budgetStyle || undefined,
+    notes: profile.notes || undefined,
+  };
 }
 
 export function toTripDraft(trip: PrimaryTrip): TripDraft {

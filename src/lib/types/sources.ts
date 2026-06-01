@@ -1,4 +1,4 @@
-export type SourceProvider = "google" | "osm" | "wikivoyage" | "wikidata";
+export type SourceProvider = "google" | "osm" | "wikivoyage" | "wikidata" | "foursquare";
 
 export type NormalizedPlace = {
   source: SourceProvider;

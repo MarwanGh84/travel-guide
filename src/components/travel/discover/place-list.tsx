@@ -22,7 +22,13 @@ type PlaceListProps = {
   isPending: boolean;
   onRefreshPlaces: () => void;
   onRefreshAI: () => void;
+  showPriceFilter?: boolean;
+  priceFilter?: string | null;
+  onPriceFilterChange?: (value: string | null) => void;
+  topBanner?: React.ReactNode;
 };
+
+const PRICE_LEVELS = ["$", "$$", "$$$", "$$$$"];
 
 export function PlaceList({
   isDestMode,
@@ -39,6 +45,10 @@ export function PlaceList({
   isPending,
   onRefreshPlaces,
   onRefreshAI,
+  showPriceFilter = false,
+  priceFilter = null,
+  onPriceFilterChange,
+  topBanner,
 }: PlaceListProps) {
   return (
     <section className="flex w-full shrink-0 flex-col border-r border-border bg-background lg:w-[350px]">
@@ -54,7 +64,29 @@ export function PlaceList({
          </div>
          <span className="text-[10px] font-bold text-muted">{isDestMode ? filteredDestinations.length : filteredPlaces.length}</span>
       </div>
+
+      {showPriceFilter && onPriceFilterChange && (
+        <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-4 py-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-muted mr-1">Price</span>
+          {PRICE_LEVELS.map((level) => (
+            <button
+              key={level}
+              onClick={() => onPriceFilterChange(priceFilter === level ? null : level)}
+              className={cn(
+                "rounded-md border px-2 py-0.5 text-[10px] font-black transition-all",
+                priceFilter === level
+                  ? "bg-foreground text-background border-foreground"
+                  : "border-border text-muted hover:border-foreground hover:text-foreground",
+              )}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
+      )}
       
+      {topBanner}
+
       <div className="flex-1 overflow-y-auto divide-y divide-border/50 scrollbar-hide">
          {hasNoDataYet && (
            <div className="p-8 text-center">

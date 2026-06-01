@@ -9,18 +9,20 @@ import {
   removeSelectedPlace, 
   planDestination,
   addSavedPlaceToDay,
-  fetchLiveEvents
+  fetchLiveEvents,
+  fetchCommunityRecommendations
 } from "@/app/actions";
-import type { PlaceRecommendation, TripDraft, DestinationRecommendation } from "@/lib/types/travel";
+import type { PlaceRecommendation, TripDraft, DestinationRecommendation, CommunityRecommendation } from "@/lib/types/travel";
 import type { WeatherSummary } from "@/lib/api/weatherService";
 import type { LiveEvent } from "@/lib/api/eventsService";
-import { Info, Globe, CloudSun, Calendar, Compass, Sparkles, Bookmark, Star, Utensils, Church, Navigation } from "lucide-react";
+import { Info, Globe, CloudSun, Calendar, Compass, Sparkles, Bookmark, Star, Utensils, Church, Navigation, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { CategoryRail } from "./discover/category-rail";
 import { PlaceList } from "./discover/place-list";
 import { IntelView } from "./discover/intel-view";
 import { EventsView } from "./discover/events-view";
+import { CommunityView } from "./discover/community-view";
 import { WeatherView } from "./discover/weather-view";
 import { DetailPane } from "./discover/detail-pane";
 
@@ -80,6 +82,13 @@ export function DiscoverWorkspace({
   const [isPending, startTransition] = useTransition();
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [isFetchingEvents, setIsFetchingEvents] = useState(false);
+  const [priceFilter, setPriceFilter] = useState<string | null>(null);
+  const [communityItems, setCommunityItems] = useState<CommunityRecommendation[]>([]);
+  const [isFetchingCommunity, setIsFetchingCommunity] = useState(false);
+  const [communityNotConnected, setCommunityNotConnected] = useState(false);
+  const [communityFocus, setCommunityFocus] = useState<"hidden-gems" | "restaurants">("hidden-gems");
+  const [communityLoadedKey, setCommunityLoadedKey] = useState("");
+  const [autoRefreshCount, setAutoRefreshCount] = useState(0);
 
   // Computed IDs from URL
   const selectedPlaceId = activeCategoryId !== "destinations" && activeCategoryId !== "events" ? selectedIdFromUrl : "";
@@ -109,6 +118,27 @@ export function DiscoverWorkspace({
     }
   }, [activeCategoryId, liveEvents.length, trip?.destination, selectedIdFromUrl, updateUrl]);
 
+  useEffect(() => {
+    const destination = trip?.destination;
+    if (activeCategoryId !== "community" || !destination) return;
+    const key = `${destination}|${communityFocus}`;
+    if (key === communityLoadedKey) return;
+    let cancelled = false;
+    const loadCommunity = async () => {
+      setIsFetchingCommunity(true);
+      const res = await fetchCommunityRecommendations(destination, communityFocus);
+      if (cancelled) return;
+      setCommunityItems(res.data ?? []);
+      setCommunityNotConnected(Boolean(res.isMock));
+      setCommunityLoadedKey(key);
+      setIsFetchingCommunity(false);
+    };
+    loadCommunity();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCategoryId, trip?.destination, communityFocus, communityLoadedKey]);
+
   const handleSelectEvent = (id: string) => {
     updateUrl({ id });
     setShowDetail(true);
@@ -117,10 +147,11 @@ export function DiscoverWorkspace({
   const categories = [
     { id: "intel", label: "Intel", icon: Info },
     { id: "destinations", label: "Ideas", icon: Globe },
+    { id: "community", label: "Community", icon: Users },
     { id: "weather", label: "Weather", icon: CloudSun },
     { id: "events", label: "Events", icon: Calendar },
     { id: "all", label: "All", icon: Compass },
-    { id: "activities", label: "Activities", icon: Sparkles },
+    { id: "things", label: "Things to Do", icon: Sparkles },
     { id: "saved", label: "Saved", icon: Bookmark },
     { id: "hidden", label: "Gems", icon: Star },
     { id: "food", label: "Food", icon: Utensils },
@@ -146,13 +177,18 @@ export function DiscoverWorkspace({
       if (activeCategoryId === "all") return true;
       if (activeCategoryId === "saved") return selectedIds.has(p.id);
       if (activeCategoryId === "hidden") return p.isHiddenGem;
-      if (activeCategoryId === "food") return /restaurant|cafe|bar|food|dining|eat/i.test(`${p.category} ${p.name}`);
+      if (activeCategoryId === "food") {
+        const isFood = /restaurant|cafe|bar|food|dining|eat|bistro|brasserie|izakaya|trattoria|coffee/i.test(`${p.category} ${p.name}`);
+        if (!isFood) return false;
+        if (priceFilter && p.costLevel !== priceFilter) return false;
+        return true;
+      }
       if (activeCategoryId === "culture") return /museum|temple|history|art|theatre|gallery|church|synagogue|mosque/i.test(`${p.category} ${p.name}`);
       if (activeCategoryId === "nature") return /park|garden|nature|viewpoint|beach|reserve|hiking|outdoor/i.test(`${p.category} ${p.name}`);
-      if (activeCategoryId === "activities") return /do|activity|tour|experience|event|festival|market|show|zoo|aquarium|stadium/i.test(`${p.category} ${p.name}`);
+      if (activeCategoryId === "things") return /do|activity|tour|experience|event|festival|market|show|zoo|aquarium|stadium/i.test(`${p.category} ${p.name}`);
       return true;
     });
-  }, [places, query, activeCategoryId, selectedIds, isGoodWeather]);
+  }, [places, query, activeCategoryId, selectedIds, isGoodWeather, priceFilter]);
 
   const filteredDestinations = useMemo(() => {
     return destinations.filter((destination) => {
@@ -265,6 +301,20 @@ export function DiscoverWorkspace({
     });
   };
 
+  // After creating a trip we kick off place discovery in the background, so the
+  // first Discover render can land before places are written. Poll a few times to
+  // pick them up instead of leaving the user staring at an empty list.
+  const placesWarmingUp = Boolean(trip?.destination) && places.length === 0 && autoRefreshCount < 5;
+
+  useEffect(() => {
+    if (!placesWarmingUp) return;
+    const timer = setTimeout(() => {
+      router.refresh();
+      setAutoRefreshCount((count) => count + 1);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [placesWarmingUp, router]);
+
   const hasNoDataYet = Boolean(trip) && !intelligence && places.length === 0 && destinations.length === 0;
 
   return (
@@ -297,6 +347,16 @@ export function DiscoverWorkspace({
             liveEvents={liveEvents}
             selectedEventId={selectedEventId}
             onSelectEvent={handleSelectEvent}
+            destination={trip?.destination}
+          />
+        ) : activeCategoryId === "community" ? (
+          <CommunityView
+            isFetching={isFetchingCommunity}
+            notConnected={communityNotConnected}
+            items={communityItems}
+            focus={communityFocus}
+            onChangeFocus={setCommunityFocus}
+            destination={trip?.destination ?? ""}
           />
         ) : isWeatherMode ? (
           todayWeather ? (
@@ -325,10 +385,39 @@ export function DiscoverWorkspace({
             onSelectDest={handleSelectDest}
             onSelectPlace={handleSelectPlace}
             selectedIds={selectedIds}
-            hasNoDataYet={hasNoDataYet}
+            hasNoDataYet={hasNoDataYet || (placesWarmingUp && !isDestMode)}
             isPending={isPending}
             onRefreshPlaces={handleRefreshPlaces}
             onRefreshAI={handleRefreshAI}
+            showPriceFilter={activeCategoryId === "food"}
+            priceFilter={priceFilter}
+            onPriceFilterChange={setPriceFilter}
+            topBanner={
+              activeCategoryId === "things" && trip?.destination ? (
+                <div className="shrink-0 border-b border-border bg-surface px-4 py-3">
+                  <p className="text-[10px] font-bold text-muted leading-relaxed">
+                    These are sights and experiences from your places. To book guided tours and tickets:
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[
+                      { label: "GetYourGuide", href: `https://www.getyourguide.com/s/?q=${encodeURIComponent(trip.destination)}` },
+                      { label: "Viator", href: `https://www.viator.com/search/${encodeURIComponent(trip.destination)}` },
+                      { label: "Klook", href: `https://www.klook.com/en-US/search/?query=${encodeURIComponent(trip.destination)}` },
+                    ].map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-muted hover:text-foreground hover:border-foreground transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            }
           />
         )}
       </div>

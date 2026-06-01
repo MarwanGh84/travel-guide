@@ -1,8 +1,22 @@
 import OpenAI from "openai";
-import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TripDraft } from "@/lib/types/travel";
+import type { DestinationRecommendation, ItineraryDay, PlaceRecommendation, TravelPreferences, TripDraft } from "@/lib/types/travel";
 import type { WeatherSummary } from "@/lib/api/weatherService";
 import { tripLength } from "@/lib/utils";
 import { AiDestinationsResponseSchema, AiItineraryResponseSchema } from "@/lib/validation/schemas";
+
+function preferenceContext(preferences?: TravelPreferences | null): string {
+  if (!preferences) return "";
+  const lines: string[] = [];
+  if (preferences.foodPreferences) lines.push(`- Food preferences: ${preferences.foodPreferences}`);
+  if (preferences.favoriteActivities) lines.push(`- Favorite activities: ${preferences.favoriteActivities}`);
+  if (preferences.thingsToAvoid) lines.push(`- Things to avoid: ${preferences.thingsToAvoid}`);
+  if (preferences.preferredHotelType) lines.push(`- Preferred stay style: ${preferences.preferredHotelType}`);
+  if (preferences.budgetStyle) lines.push(`- Budget style: ${preferences.budgetStyle}`);
+  if (preferences.hiddenGemInterest) lines.push(`- Strongly prefers lesser-known local spots over tourist traps.`);
+  if (preferences.notes) lines.push(`- Personal notes: ${preferences.notes}`);
+  if (lines.length === 0) return "";
+  return `\nTraveler preferences (honor these closely):\n${lines.join("\n")}\n`;
+}
 
 const model = "gpt-4o";
 
@@ -44,7 +58,8 @@ export async function structuredJson<T>(
 export async function generateFullItinerary(
   trip: TripDraft, 
   savedPlaces: PlaceRecommendation[] = [],
-  weather: WeatherSummary | null = null
+  weather: WeatherSummary | null = null,
+  preferences: TravelPreferences | null = null,
 ) {
   const length = tripLength(trip.startDate, trip.endDate);
   
@@ -83,7 +98,8 @@ Constraints:
 4. JSON: The "placeIds" array must contain the IDs from the provided list. The "placesIncluded" should contain their names.
 5. PROSE: Mention the chosen places by name inside the morningPlan, afternoonPlan, or eveningPlan.
 6. WEATHER AWARENESS: If weather risk for a day is "high" or "medium", strictly AVOID outdoor viewpoints, parks, or walking tours for that date. Prioritize indoor activities (museums, galleries, dining).
-
+7. RESTAURANTS: For "restaurantIdeas", strongly prefer restaurant/cafe names from the provided places list. If you must suggest a name not in the list, only use well-established, currently-operating venues. Never invent fictional restaurant names.
+${preferenceContext(preferences)}
 Weather Forecast:
 ${JSON.stringify(weatherContext, null, 2)}
 
@@ -135,7 +151,7 @@ export function normalizeItineraryDays(rawDays: unknown[], expectedLength: numbe
   return normalized;
 }
 
-export async function recommendDestinations(trip: TripDraft) {
+export async function recommendDestinations(trip: TripDraft, preferences: TravelPreferences | null = null) {
   const sameCountryRule = trip.destinationCountry
     ? `Every recommendation must be inside ${trip.destinationCountry}. The "country" field must be exactly "${trip.destinationCountry}". Do not recommend nearby countries.`
     : "Recommend destinations that best fit the trip profile.";
@@ -143,6 +159,8 @@ export async function recommendDestinations(trip: TripDraft) {
   let result = await structuredJson<{ destinations: DestinationRecommendation[] }>(
     `Recommend 3 destinations for this trip profile: ${JSON.stringify(trip)}.
 ${sameCountryRule}
+${preferenceContext(preferences)}
+For estimatedCost, flightEstimate, hotelEstimate and weatherSummary, give rough ballpark guidance only and keep them clearly approximate.
 Return valid JSON as { "destinations": [...] }.
 Each destination must include:
 { "name": string, "country": string, "whyItMatches": string, "bestThingsToDo": string[], "estimatedCost": number, "weatherSummary": string, "flightEstimate": string, "hotelEstimate": string, "pros": string[], "cons": string[], "bestFor": string[], "suggestedTripDuration": string, "confidenceScore": number }`,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
   Bed, 
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { StayZoneRecommendation, HotelSearchSuggestion } from "@/lib/types/stays";
 
@@ -23,9 +24,10 @@ type StaysWorkspaceProps = {
   zones: StayZoneRecommendation[];
   searchSuggestions: HotelSearchSuggestion[];
   destination: string;
+  itineraryReady?: boolean;
 };
 
-export function StaysWorkspace({ strategy, zones, searchSuggestions, destination }: StaysWorkspaceProps) {
+export function StaysWorkspace({ strategy, zones, searchSuggestions, destination, itineraryReady = true }: StaysWorkspaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -47,7 +49,25 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
   const activeZone = zones.find(z => z.id === selectedZoneId) ?? zones[0];
 
   return (
-    <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      {!itineraryReady && (
+        <div className="flex shrink-0 flex-col gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-start gap-3">
+            <Info size={16} className="mt-0.5 shrink-0 text-amber-600" />
+            <p className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+              These stay zones are based on a draft itinerary. Approve your itinerary first for recommendations
+              centered on where you&apos;ll actually spend your days.
+            </p>
+          </div>
+          <Link
+            href="/itinerary"
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-background px-3 text-[10px] font-black uppercase tracking-widest text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+          >
+            Go to itinerary <ChevronRight size={12} />
+          </Link>
+        </div>
+      )}
+      <div className="flex h-full w-full overflow-hidden flex-col lg:flex-row bg-background">
       {/* 1. Sidebar - Zone Selection */}
       <aside className="flex w-full shrink-0 flex-col border-b border-border bg-surface p-4 sm:p-6 lg:w-[350px] lg:border-b-0 lg:border-r shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 overflow-y-auto lg:overflow-hidden lg:h-full">
         <div className="flex flex-col gap-6 sm:gap-8 pr-1 lg:h-full lg:overflow-y-auto scrollbar-hide">
@@ -280,6 +300,7 @@ export function StaysWorkspace({ strategy, zones, searchSuggestions, destination
           )}
         </AnimatePresence>
       </main>
+      </div>
     </div>
   );
 }

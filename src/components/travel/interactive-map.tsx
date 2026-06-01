@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
   type Dispatch,
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
@@ -12,6 +13,7 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Clock3, 
   Eye, 
@@ -29,17 +31,23 @@ import {
   Info,
   AlertTriangle,
   CheckCircle2,
-  Activity
+  Activity,
+  Bookmark,
+  BookmarkCheck,
+  Loader2
 } from "lucide-react";
 
 import { buildGoogleMapsDirectionsUrl, formatDistance, formatDuration, type MapPin as RoutePin, type MapRoute } from "@/lib/api/mapsService";
 import { computeRouteRealityCheck } from "@/lib/travel/route-intelligence";
+import { savePlaceForLater } from "@/app/actions";
 import { cn } from "@/lib/utils";
 
 type InteractiveMapProps = {
   route: MapRoute;
   mapImageBaseUrl: string | null;
   browserMapApiKey: string | null;
+  discoverPins?: RoutePin[];
+  savedPlaceIds?: string[];
 };
 
 function RouteRealityCheck({ route, googleMapsRouteUrl }: { route: MapRoute, googleMapsRouteUrl: string | null }) {
@@ -112,20 +120,47 @@ const layerLabels: Record<LayerKey, string> = {
   hiddenGems: "Hidden Gems",
 };
 
-export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: InteractiveMapProps) {
-  const [selectedPinId, setSelectedPinId] = useState(route.pins[0]?.id ?? "");
+export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey, discoverPins = [], savedPlaceIds = [] }: InteractiveMapProps) {
+  const router = useRouter();
+  const [selectedPinId, setSelectedPinId] = useState(route.pins[0]?.id ?? discoverPins[0]?.id ?? "");
   const [zoom, setZoom] = useState(route.zoom);
   const [center, setCenter] = useState(route.center);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ recommended: true, restaurants: true, hiddenGems: true });
+  const [showAllPlaces, setShowAllPlaces] = useState(route.pins.length === 0 && discoverPins.length > 0);
   const [sidebarTab, setSidebarTab] = useState<"detail" | "list" | "segments">("list");
+  const [isSaving, startSaving] = useTransition();
   const dragState = useRef<{ pointerId: number; x: number; y: number; center: { lat: number; lng: number } } | null>(null);
 
-  const visiblePins = useMemo(() => route.pins.filter((pin) => isPinVisible(pin, layers)), [route.pins, layers]);
+  const savedIds = useMemo(() => new Set(savedPlaceIds), [savedPlaceIds]);
+
+  const sourcePins = useMemo(() => {
+    if (!showAllPlaces) return route.pins;
+    const merged = new Map<string, RoutePin>();
+    route.pins.forEach((pin) => merged.set(pin.id, pin));
+    discoverPins.forEach((pin) => {
+      if (!merged.has(pin.id)) merged.set(pin.id, pin);
+    });
+    return [...merged.values()];
+  }, [showAllPlaces, route.pins, discoverPins]);
+
+  const visiblePins = useMemo(() => sourcePins.filter((pin) => isPinVisible(pin, layers)), [sourcePins, layers]);
   const selectedPin = visiblePins.find((pin) => pin.id === selectedPinId) ?? visiblePins[0] ?? null;
+
+  const canSavePin = (pin: RoutePin | null): pin is RoutePin =>
+    Boolean(pin && (pin.matchMethod === "recommendation" || pin.matchMethod === "linked-record" || pin.matchMethod === "matched-by-name"));
+
+  const handleSavePin = (pinId: string) => {
+    const formData = new FormData();
+    formData.set("placeId", pinId);
+    startSaving(async () => {
+      await savePlaceForLater(formData);
+      router.refresh();
+    });
+  };
   const visibleRoute = useMemo(() => ({ ...route, center, zoom }), [center, route, zoom]);
   const mapImageUrl = mapImageBaseUrl && center ? `${mapImageBaseUrl}&zoom=${zoom}&lat=${center.lat}&lng=${center.lng}` : null;
   const positions = useMemo(() => projectPins(visiblePins, visibleRoute), [visiblePins, visibleRoute]);
-  const isEmpty = route.pins.length === 0;
+  const isEmpty = route.pins.length === 0 && discoverPins.length === 0;
   const googleMapsRouteUrl = buildGoogleMapsDirectionsUrl(route.routePins);
 
   function handleWheel(event: ReactWheelEvent<HTMLElement>) {
@@ -237,7 +272,13 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
              )}
 
              {sidebarTab === "detail" && (
-                <PinDetail pin={selectedPin} />
+                <PinDetail
+                  pin={selectedPin}
+                  canSave={canSavePin(selectedPin)}
+                  isSaved={selectedPin ? savedIds.has(selectedPin.id) : false}
+                  isSaving={isSaving}
+                  onSave={handleSavePin}
+                />
              )}
 
              <RouteRealityCheck route={route} googleMapsRouteUrl={googleMapsRouteUrl} />
@@ -261,6 +302,24 @@ export function InteractiveMap({ route, mapImageBaseUrl, browserMapApiKey }: Int
 
              {/* Layer Controls - Always visible at bottom of scroll if list is long */}
              <section className="rounded-2xl border border-border bg-surface p-6 shadow-inner mt-8">
+                {discoverPins.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllPlaces((current) => !current)}
+                    className={cn(
+                      "mb-5 flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-all",
+                      showAllPlaces ? "border-foreground bg-foreground text-background shadow-lg" : "border-border bg-background text-foreground hover:border-foreground",
+                    )}
+                  >
+                    <span className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Show all recommendations</span>
+                      <span className={cn("mt-0.5 text-[9px] font-bold uppercase tracking-widest", showAllPlaces ? "text-background/70" : "text-muted")}>
+                        {showAllPlaces ? `${sourcePins.length} places on map` : `+${discoverPins.length} more to explore`}
+                      </span>
+                    </span>
+                    {showAllPlaces ? <Eye size={14} /> : <EyeOff size={14} />}
+                  </button>
+                )}
                 <header className="mb-4 flex items-center gap-2">
                    <Layers size={14} className="text-foreground" />
                    <h2 className="text-[10px] font-black uppercase tracking-widest text-foreground">Data Layers</h2>
@@ -774,11 +833,23 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-function PinDetail({ pin }: { pin: RoutePin | null }) {
+function PinDetail({
+  pin,
+  canSave,
+  isSaved,
+  isSaving,
+  onSave,
+}: {
+  pin: RoutePin | null;
+  canSave: boolean;
+  isSaved: boolean;
+  isSaving: boolean;
+  onSave: (pinId: string) => void;
+}) {
   if (!pin) return (
     <div className="py-20 text-center opacity-40">
        <MapPin className="mx-auto size-8 text-border mb-4" />
-       <p className="text-[10px] font-black uppercase tracking-widest text-muted">Select an entity from index</p>
+       <p className="text-[10px] font-black uppercase tracking-widest text-muted">Select a place from the index</p>
     </div>
   );
 
@@ -809,7 +880,22 @@ function PinDetail({ pin }: { pin: RoutePin | null }) {
         </div>
       </div>
 
-      <div className="mt-10">
+      <div className="mt-10 space-y-3">
+        {canSave && (
+          isSaved ? (
+            <div className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+              <BookmarkCheck size={14} /> Saved to plan
+            </div>
+          ) : (
+            <button
+              disabled={isSaving}
+              className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background text-[10px] font-black uppercase tracking-[0.2em] text-foreground transition-all hover:border-foreground active:scale-[0.98] disabled:opacity-50"
+              onClick={() => onSave(pin.id)}
+            >
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Bookmark size={14} />} Save to plan
+            </button>
+          )
+        )}
         <button
           className="h-12 w-full bg-foreground text-background shadow-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 active:scale-[0.98] font-black text-[10px] uppercase tracking-[0.2em] rounded-lg flex items-center justify-center gap-3 transition-all"
           onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${pin.label} ${pin.lat},${pin.lng}`)}`, "_blank")}

@@ -11,9 +11,8 @@ export default async function StaysPage() {
   if (!trip) {
     redirect("/trips");
   }
-  if (trip.status !== "itinerary_approved" || !trip.itineraryApprovedAt) {
-    redirect("/itinerary");
-  }
+
+  const itineraryReady = trip.status === "itinerary_approved" && Boolean(trip.itineraryApprovedAt);
 
   // Calculate stay recommendations based on itinerary clustering
   const { strategy, zones, searchSuggestions } = await getStayRecommendations(trip);
@@ -24,6 +23,7 @@ export default async function StaysPage() {
       zones={zones}
       searchSuggestions={searchSuggestions}
       destination={trip.destination || "Unknown"}
+      itineraryReady={itineraryReady}
     />
   );
 }

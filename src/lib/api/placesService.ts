@@ -1,4 +1,4 @@
-import type { PlaceRecommendation, TripDraft } from "@/lib/types/travel";
+import type { PlaceRecommendation, TravelPreferences, TripDraft } from "@/lib/types/travel";
 
 type GooglePlace = {
   id?: string;
@@ -34,8 +34,10 @@ const categoryQueries = [
   "famous attractions",
   "hidden gems",
   "local neighborhoods",
-  "restaurants",
-  "cafes",
+  "highly rated local restaurants",
+  "traditional local food",
+  "best street food",
+  "cozy cafes and coffee",
   "museums",
   "viewpoints",
   "nature spots",
@@ -64,13 +66,16 @@ const genericNamePattern =
 const blockedNamePattern =
   /photographer|photoshoot|photo shoot|studio photographer|wedding photographer|portrait|corporate|real estate|agency/i;
 
-export async function getPlacesForTrip(trip: TripDraft): Promise<PlaceRecommendation[]> {
+export async function getPlacesForTrip(
+  trip: TripDraft,
+  preferences?: TravelPreferences | null,
+): Promise<PlaceRecommendation[]> {
   const destinationScope = placeDestinationScope(trip);
   if (!process.env.GOOGLE_PLACES_API_KEY || !destinationScope) {
     return [];
   }
 
-  const queries = buildPlaceQueries(trip, destinationScope);
+  const queries = buildPlaceQueries(trip, destinationScope, preferences);
   const results = await Promise.allSettled(queries.map((query) => searchGooglePlaces(query)));
   const places = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
   const deduped = dedupePlaces(places);
@@ -78,7 +83,31 @@ export async function getPlacesForTrip(trip: TripDraft): Promise<PlaceRecommenda
     return [];
   }
 
-  return diversifyPlaces(rankHiddenGems(deduped, trip.interests), 24);
+  const ranked = rankHiddenGems(deduped, trip.interests);
+  const filtered = applyAvoidFilter(ranked, preferences?.thingsToAvoid);
+  return diversifyPlaces(filtered, 36);
+}
+
+function splitPreference(value: string): string[] {
+  return value
+    .split(/[,;]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 2)
+    .slice(0, 6);
+}
+
+function applyAvoidFilter(places: PlaceRecommendation[], thingsToAvoid?: string) {
+  if (!thingsToAvoid) return places;
+  const avoidTerms = splitPreference(thingsToAvoid)
+    .map((term) => term.toLowerCase())
+    // Generic scheduling gripes ("overpacked days", "long transfers") are not
+    // place attributes, so don't let them filter out real venues.
+    .filter((term) => term.length > 3 && !/\b(day|days|crowd|crowds|transfer|transfers|early|late|rush|packed|wait|queue|line)\b/.test(term));
+  if (avoidTerms.length === 0) return places;
+  return places.filter((place) => {
+    const haystack = `${place.name} ${place.category} ${place.description}`.toLowerCase();
+    return !avoidTerms.some((term) => haystack.includes(term));
+  });
 }
 
 export function rankHiddenGems(places: PlaceRecommendation[], interests: string[]) {
@@ -110,13 +139,26 @@ export function rankHiddenGems(places: PlaceRecommendation[], interests: string[
     .sort((a, b) => b.hiddenGemScore - a.hiddenGemScore);
 }
 
-function buildPlaceQueries(trip: TripDraft, destination: string) {
+function buildPlaceQueries(trip: TripDraft, destination: string, preferences?: TravelPreferences | null) {
   const interestQueries = trip.interests
     .slice(0, 6)
     .flatMap((interest) => interestQueryMap[interest.toLowerCase()] ?? [`${interest} travel spots`])
     .map((query) => `${query} in ${destination}`);
   const baselineQueries = categoryQueries.map((category) => `${category} in ${destination}`);
-  return [...new Set([...interestQueries, ...baselineQueries])].slice(0, 12);
+
+  // Personalize from the saved travel profile: feed concrete food and activity
+  // preferences straight into Google Places text search so results reflect what
+  // this traveler actually likes rather than only generic categories.
+  const preferenceQueries: string[] = [];
+  if (preferences?.foodPreferences) {
+    preferenceQueries.push(...splitPreference(preferences.foodPreferences).map((term) => `${term} in ${destination}`));
+  }
+  if (preferences?.favoriteActivities) {
+    preferenceQueries.push(...splitPreference(preferences.favoriteActivities).map((term) => `${term} in ${destination}`));
+  }
+
+  // Preference-derived queries first so they survive the cap, then interests, then baseline.
+  return [...new Set([...preferenceQueries, ...interestQueries, ...baselineQueries])].slice(0, 18);
 }
 
 function placeDestinationScope(trip: TripDraft) {

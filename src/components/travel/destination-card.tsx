@@ -18,7 +18,7 @@ export function DestinationCard({ destination }: { destination: DestinationRecom
               <StatusBadge tone="warm">{destination.confidenceScore}% match</StatusBadge>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <MiniStat label="Cost" value={`$${destination.estimatedCost.toLocaleString()}`} />
+              <MiniStat label="Est. cost" value={`~$${destination.estimatedCost.toLocaleString()}`} />
               <MiniStat label="Duration" value={destination.suggestedTripDuration} />
             </div>
           </div>

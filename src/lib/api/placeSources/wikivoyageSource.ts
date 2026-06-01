@@ -242,7 +242,10 @@ export async function getWikivoyagePOIs(destination: string, country: string): P
           longitude: coords?.[0],
           photoUrl,
           confidenceScore: 0.85,
-          hiddenGemScore: 70, 
+          // Wikivoyage POIs are curated by real travelers and are genuinely
+          // lesser-known compared with Google's top tourist results, so they
+          // should clear the hidden-gem threshold (75) and surface in the Gems tab.
+          hiddenGemScore: 80,
           raw: feature
         };
       });

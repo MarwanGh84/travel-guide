@@ -11,17 +11,19 @@ import {
   formString,
   getOrCreateUser,
   getPrimaryTrip,
+  getTravelPreferences,
   parseDateField,
   parseNumberField,
   parseBooleanField,
   toTripDraft,
 } from "@/lib/db/travel";
 import { TripDraftSchema } from "@/lib/validation/schemas";
-import type { DestinationRecommendation, PlaceRecommendation } from "@/lib/types/travel";
+import type { DestinationRecommendation, PlaceRecommendation, TravelPreferences, TripDraft } from "@/lib/types/travel";
 import type { NormalizedPlace } from "@/lib/types/sources";
 
 import { aggregateIntelligence } from "@/lib/api/placeSources/sourceAggregator";
 import { getPlacesForTrip } from "@/lib/api/placesService";
+import { getCommunityRecommendations } from "@/lib/api/perplexityService";
 import {
   extractDriveFolderId,
   getDriveFolderMetadata,
@@ -97,13 +99,44 @@ export async function createTrip(formData: FormData) {
   }
   await createDefaultTripChildren(trip.id);
 
-  // Background intelligence triggering
-  void refreshPlacesFromProvider();
+  const preferences = await getTravelPreferences();
 
-  await recommendDestinations(tripDraft);
+  // Kick off place discovery in the background, but persist destination ideas
+  // before redirecting so the Discover "Ideas" tab is populated on first load.
+  void refreshPlacesFromProvider();
+  await generateAndSaveDestinations(trip.id, tripDraft, preferences);
 
   revalidateAll();
   redirect("/discover");
+}
+
+async function generateAndSaveDestinations(
+  tripId: string,
+  tripDraft: TripDraft,
+  preferences: TravelPreferences | null,
+) {
+  const result = await recommendDestinations(tripDraft, preferences);
+  if (!result.ok) return;
+  await prisma.destinationRecommendation.deleteMany({ where: { tripId } });
+  await prisma.destinationRecommendation.createMany({
+    data: result.data.map((destination: DestinationRecommendation) => ({
+      tripId,
+      name: destination.name,
+      country: destination.country,
+      whyItMatches: destination.whyItMatches,
+      bestThingsToDo: destination.bestThingsToDo.join(", "),
+      estimatedCost: destination.estimatedCost,
+      weatherSummary: destination.weatherSummary,
+      flightEstimate: destination.flightEstimate,
+      hotelEstimate: destination.hotelEstimate,
+      pros: destination.pros.join(", "),
+      cons: destination.cons.join(", "),
+      bestFor: destination.bestFor.join(", "),
+      suggestedTripDuration: destination.suggestedTripDuration,
+      confidenceScore: destination.confidenceScore,
+      source: result.isMock ? "not-connected" : "openai",
+    })),
+  });
 }
 
 export async function saveProfile(formData: FormData) {
@@ -484,8 +517,9 @@ export async function refreshPlacesFromProvider() {
   if (!trip) return;
   
   const tripDraft = toTripDraft(trip);
+  const preferences = await getTravelPreferences();
   const [googlePlaces, aggregated] = await Promise.all([
-    getPlacesForTrip(tripDraft),
+    getPlacesForTrip(tripDraft, preferences),
     aggregateIntelligence(tripDraft),
   ]);
   const places = mergeDiscoveredPlaces(googlePlaces, aggregated.places);
@@ -562,29 +596,22 @@ export async function refreshPlacesFromProvider() {
 export async function refreshDestinationsFromAi() {
   const trip = await getPrimaryTrip();
   if (!trip) return;
-  const result = await recommendDestinations(toTripDraft(trip));
-  if (!result.ok) return;
-  await prisma.destinationRecommendation.deleteMany({ where: { tripId: trip.id } });
-  await prisma.destinationRecommendation.createMany({
-    data: result.data.map((destination: DestinationRecommendation) => ({
-      tripId: trip.id,
-      name: destination.name,
-      country: destination.country,
-      whyItMatches: destination.whyItMatches,
-      bestThingsToDo: destination.bestThingsToDo.join(", "),
-      estimatedCost: destination.estimatedCost,
-      weatherSummary: destination.weatherSummary,
-      flightEstimate: destination.flightEstimate,
-      hotelEstimate: destination.hotelEstimate,
-      pros: destination.pros.join(", "),
-      cons: destination.cons.join(", "),
-      bestFor: destination.bestFor.join(", "),
-      suggestedTripDuration: destination.suggestedTripDuration,
-      confidenceScore: destination.confidenceScore,
-      source: result.isMock ? "not-connected" : "openai",
-    })),
-  });
+  const preferences = await getTravelPreferences();
+  await generateAndSaveDestinations(trip.id, toTripDraft(trip), preferences);
   revalidateAll();
+}
+
+export async function fetchCommunityRecommendations(
+  destination: string,
+  focus: "hidden-gems" | "restaurants" = "hidden-gems",
+) {
+  try {
+    const result = await getCommunityRecommendations(destination, focus);
+    return { ok: result.ok, isMock: result.isMock, note: result.note, data: result.data };
+  } catch (error) {
+    console.error("Fetch Community Recommendations Error:", error);
+    return { ok: false, isMock: false, note: "Could not fetch community recommendations.", data: [] };
+  }
 }
 
 export async function deleteTrip() {

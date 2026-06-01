@@ -33,6 +33,31 @@ export type TripDraft = {
   itineraryApprovedAt?: string | null;
 };
 
+export type TravelPreferences = {
+  foodPreferences?: string;
+  favoriteActivities?: string;
+  thingsToAvoid?: string;
+  hiddenGemInterest?: boolean;
+  preferredHotelType?: string;
+  budgetStyle?: string;
+  notes?: string;
+};
+
+export type PlaceReview = {
+  author?: string;
+  rating?: number;
+  text: string;
+  relativeTime?: string;
+};
+
+export type CommunityRecommendation = {
+  id: string;
+  name: string;
+  category: string;
+  summary: string;
+  sources: Array<{ title: string; url: string }>;
+};
+
 export type DestinationRecommendation = {
   id: string;
   name: string;

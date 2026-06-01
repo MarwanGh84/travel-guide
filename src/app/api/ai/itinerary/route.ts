@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateFullItinerary } from "@/lib/ai/openai";
 import { prisma } from "@/lib/db/prisma";
-import { getPrimaryTrip, toPlaceRecommendations, toSelectedPlaceRecommendations, toTripDraft } from "@/lib/db/travel";
+import { getPrimaryTrip, getTravelPreferences, toPlaceRecommendations, toSelectedPlaceRecommendations, toTripDraft } from "@/lib/db/travel";
 import { AiItineraryRequestSchema } from "@/lib/validation/schemas";
 import { normalizeName } from "@/lib/utils";
 import type { QualitySummary, PlaceRecommendation } from "@/lib/types/travel";
@@ -29,7 +29,8 @@ export async function POST(request: Request) {
 
   const destination = trip.destination || trip.destinationCountry || "";
   const weather = destination ? await getWeatherSummary(destination) : null;
-  const result = await generateFullItinerary(tripDraft, planningPlaces, weather);
+  const preferences = await getTravelPreferences();
+  const result = await generateFullItinerary(tripDraft, planningPlaces, weather, preferences);
 
   if (save && result.ok) {
     const allRecommendations = (await prisma.placeRecommendation.findMany({ where: { tripId: trip.id } })) as unknown as PlaceRecommendation[];

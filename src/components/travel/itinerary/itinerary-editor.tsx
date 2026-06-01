@@ -87,10 +87,15 @@ export function ItineraryEditor({
           </div>
           
           <div className="space-y-6">
-             <DetailSection icon={Utensils} title="Cuisine Context" content={day.restaurantIdeas} />
-             <DetailSection icon={Train} title="Transit Intelligence" content={day.transportNotes} />
-             <DetailSection icon={Sparkles} title="Hidden Objective" content={day.hiddenGem} />
-             <DetailSection icon={ShieldCheck} title="Backup Plan" content={day.backupOption} />
+             <DetailSection
+               icon={Utensils}
+               title="Restaurant ideas"
+               content={day.restaurantIdeas}
+               caption="AI suggestions — verify they're open and worth a visit before booking."
+             />
+             <DetailSection icon={Train} title="Getting around" content={day.transportNotes} />
+             <DetailSection icon={Sparkles} title="Hidden gem" content={day.hiddenGem} />
+             <DetailSection icon={ShieldCheck} title="Backup plan" content={day.backupOption} />
           </div>
       </div>
       
@@ -170,7 +175,7 @@ export function ItineraryEditor({
   );
 }
 
-function DetailSection({ icon: Icon, title, content }: { icon: LucideIcon, title: string, content?: string | string[] }) {
+function DetailSection({ icon: Icon, title, content, caption }: { icon: LucideIcon, title: string, content?: string | string[], caption?: string }) {
   if (!content || (Array.isArray(content) && content.length === 0)) return null;
   return (
     <section>
@@ -180,6 +185,9 @@ function DetailSection({ icon: Icon, title, content }: { icon: LucideIcon, title
        <p className="text-xs leading-relaxed text-muted-2 font-medium">
           {Array.isArray(content) ? content.join(", ") : content}
        </p>
+       {caption && (
+         <p className="mt-2 text-[10px] italic leading-relaxed text-muted/70">{caption}</p>
+       )}
     </section>
   );
 }
