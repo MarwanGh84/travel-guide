@@ -3,7 +3,11 @@ import { getOrCreateUser } from "@/lib/db/travel";
 import type { RawEmailForImport } from "@/lib/imports/travelEmailParser";
 
 const DRIVE_READ_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
-const GMAIL_SCOPE = `https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email ${DRIVE_READ_SCOPE}`;
+// Base scope for Gmail import — gmail.readonly + email only.
+// Drive scope is added separately via getGmailAuthorizationUrl(state, true)
+// so the import flow doesn't request a restricted scope and trigger a policy error.
+const GMAIL_BASE_SCOPE = `https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email`;
+const GMAIL_SCOPE = GMAIL_BASE_SCOPE; // kept for any external references
 const REQUIRED_GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const DEFAULT_SEARCH_QUERY = "newer_than:2y (booking.com OR expedia.com OR 'booking.com' OR 'expedia')";
 const DEFAULT_REDIRECT_URI = "http://localhost:3000/api/gmail/callback";
@@ -75,13 +79,14 @@ export async function getGmailConnectionStatus(): Promise<GmailConnectionStatus>
   };
 }
 
-export function getGmailAuthorizationUrl(state: string) {
+export function getGmailAuthorizationUrl(state: string, includeDrive = false) {
   if (!hasGmailOAuthConfig()) return null;
+  const scope = includeDrive ? `${GMAIL_BASE_SCOPE} ${DRIVE_READ_SCOPE}` : GMAIL_BASE_SCOPE;
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", process.env.GMAIL_CLIENT_ID ?? "");
   url.searchParams.set("redirect_uri", gmailRedirectUri());
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", GMAIL_SCOPE);
+  url.searchParams.set("scope", scope);
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("state", state);

@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getGmailAuthorizationUrl } from "@/lib/api/gmailService";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const includeDrive = new URL(request.url).searchParams.get("scope") === "drive";
   const state = randomBytes(24).toString("hex");
-  const authorizationUrl = getGmailAuthorizationUrl(state);
+  const authorizationUrl = getGmailAuthorizationUrl(state, includeDrive);
   if (!authorizationUrl) {
     return NextResponse.redirect(new URL("/imports?gmail=missing-config", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"));
   }

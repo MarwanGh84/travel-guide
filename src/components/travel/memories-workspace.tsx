@@ -219,7 +219,7 @@ export function MemoriesWorkspace({ memories, tripName, memorySources, memoryAss
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-4 text-sm text-muted-2">
               <span>Reconnect Google to enable Drive previews.</span>
               <a
-                href="/api/gmail/connect"
+                href="/api/gmail/connect?scope=drive"
                 className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-[10px] font-black uppercase tracking-widest text-background"
               >
                 Reconnect Google
