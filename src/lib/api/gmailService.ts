@@ -7,7 +7,6 @@ const DRIVE_READ_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 // Drive scope is added separately via getGmailAuthorizationUrl(state, true)
 // so the import flow doesn't request a restricted scope and trigger a policy error.
 const GMAIL_BASE_SCOPE = `https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email`;
-const GMAIL_SCOPE = GMAIL_BASE_SCOPE; // kept for any external references
 const REQUIRED_GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const DEFAULT_SEARCH_QUERY = "newer_than:2y (booking.com OR expedia.com OR 'booking.com' OR 'expedia')";
 const DEFAULT_REDIRECT_URI = "http://localhost:3000/api/gmail/callback";
