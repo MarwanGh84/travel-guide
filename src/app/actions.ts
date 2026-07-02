@@ -590,7 +590,7 @@ export async function refreshPlacesFromProvider() {
         },
       },
     });
-  });
+  }, { timeout: 30_000, maxWait: 10_000 });
   revalidateAll();
 }
 
