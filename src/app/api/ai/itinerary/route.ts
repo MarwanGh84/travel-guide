@@ -8,6 +8,11 @@ import type { QualitySummary, PlaceRecommendation } from "@/lib/types/travel";
 import { canonicalizeDayWithQuality } from "@/lib/ai/itineraryQuality";
 import { getWeatherSummary } from "@/lib/api/weatherService";
 
+// Full itinerary generation is a single large gpt-4o call plus a
+// multi-row save; both can run 45-60s. Vercel Hobby's default function
+// timeout is 10s, so this must be raised explicitly (60s is the Hobby max).
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const validation = AiItineraryRequestSchema.safeParse(body);

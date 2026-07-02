@@ -11,6 +11,12 @@ import { getWeatherSummary } from "@/lib/api/weatherService";
 
 export const dynamic = "force-dynamic";
 
+// refreshPlacesFromProvider (invoked as a Server Action from this page) runs
+// ~20-30s of provider calls plus a multi-row save. Vercel Hobby's default
+// function timeout is 10s, so this must be raised explicitly (60s is the
+// Hobby max) or the action gets killed mid-refresh.
+export const maxDuration = 60;
+
 export default async function DiscoverPage() {
   const dbTrip = await getPrimaryTrip();
   const trip = dbTrip ? toTripDraft(dbTrip) : null;
