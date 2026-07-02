@@ -95,7 +95,7 @@ export async function POST(request: Request) {
           },
         });
       }
-    });
+    }, { timeout: 30_000, maxWait: 10_000 });
 
     const savedDays = await prisma.itineraryDay.findMany({
       where: { tripId: trip.id },

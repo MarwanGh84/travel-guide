@@ -83,24 +83,30 @@ export function ItineraryWorkspace({ initialDays, selectedPlaces, allPlaces, sho
   const generate = useCallback(async () => {
     setGenerating(true);
     setStatus("Generating optimized journey...");
-    const selectedIds = selectedPlaces.map((p) => p.id);
-    const response = await fetch("/api/ai/itinerary", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ save: true, selectedPlaceIds: selectedIds }),
-    });
-    const result = await response.json();
-    setGenerating(false);
-    if (response.ok && result.ok) {
-      setDays(result.data);
-      setActiveDayId(result.data[0]?.id ?? "");
-      setShowDetail(Boolean(result.data[0]));
-      setStatus("Itinerary synchronized.");
-      setTimeout(() => setStatus(""), 3000);
-      return;
+    try {
+      const selectedIds = selectedPlaces.map((p) => p.id);
+      const response = await fetch("/api/ai/itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ save: true, selectedPlaceIds: selectedIds }),
+      });
+      const result = await response.json();
+      if (response.ok && result.ok) {
+        setDays(result.data);
+        setActiveDayId(result.data[0]?.id ?? "");
+        setShowDetail(Boolean(result.data[0]));
+        setStatus("Itinerary synchronized.");
+        setTimeout(() => setStatus(""), 3000);
+        return;
+      }
+      setStatus(result.raw || result.message || "Itinerary generation failed.");
+      setTimeout(() => setStatus(""), 5000);
+    } catch {
+      setStatus("Itinerary generation failed. Try again.");
+      setTimeout(() => setStatus(""), 5000);
+    } finally {
+      setGenerating(false);
     }
-    setStatus(result.raw || result.message || "Itinerary generation failed.");
-    setTimeout(() => setStatus(""), 5000);
   }, [selectedPlaces]);
 
   useEffect(() => {
